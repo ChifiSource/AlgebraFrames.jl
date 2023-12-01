@@ -8,20 +8,22 @@ This software is MIT-licensed.
 
 """
 module Algia
-import Base: (:), getindex, setindex!, vect, Vector, show
+import Base: (:), getindex, setindex!, vect, Vector, show, length
 
 abstract type AbstractAlgebra end
+
+length(a::AbstractAlgebra) = a.length::Int64
 
 mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     pipe::Dict{Tuple, Function}
     length::Int64
-    Algebra{T}(f::Function, length::Int64, width::Int64) where T <: Any = begin
+    Algebra{T, N}(f::Function, length::Int64) where {T <: Any, N <: Any} = begin
         funcs::Dict{Tuple, Function} = Dict{Tuple, Function}()
-        push!(funcs, (length, width) => f)
-        new{T, 1}(funcs, length)
-    end
-    Algebra{T}(length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
-        Algebra{T}(x -> 0, length, width)
+        push!(funcs, (length, N) => f)
+        new{T, N}(funcs, length)::AbstractAlgebra
+    end 
+    Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
+        Algebra{T, width}(x -> 0, length)::AbstractAlgebra
     end
     Algebra{T}(f::Function, dim::Tuple) where T <: Any = begin
         if length(dim) == 1
@@ -31,15 +33,26 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
         end
     end
 end
-mutable struct AlgebraFrame <: AbstractAlgebra
-    Vector{Pair{String, Algebra}}()
-    function AlgebraFrame(f::Function)
 
+const AlgebraVector{T} = Algia.Algebra{T,1}
+
+mutable struct AlgebraFrame{N <: Any} <: AbstractAlgebra
+    pipe::Dict{Tuple, Function}
+    names::Vector{String}
+    algebra::Algebra{Any, N}
+    function AlgebraFrame(f::Function, n_features::Int64, n::Int64)
+        algebra = Algebra{Any}(n, n_features)
+    end
+    function AlgebraFrame(n_features::Int64, n::Int64)
+        algebra = Algebra{Any}(n, n_features)
+        AlgebraFrame(f)
     end
 end
+
 # algebra interface
 function (:)(alg::AbstractAlgebra, f::Function)
-    push!(alg.pipe, (alg.length, ) => f)
+    w = typeof(alg).parameters[2]
+    push!(alg.pipe, (alg.length, w) => f)
 end
 
 function (:)(T::Type, un::Int64, f::Function = x -> 0)
@@ -49,17 +62,17 @@ end
 function (:)(T::Type, dim::Tuple, f::Function = x -> 0)
     Algebra{T}(f, dim, dos)::Algebra{T, dos}
 end
-
+#==
 function setindex!()
 
 end
+==#
 # generation interface
-function Vector(alg::AbstractAlgebra{<:Any, 1})
-    gen = alg.pipe[1]
+function Vector(alg::Algebra{<:Any, 1})
+    gen = first(alg.pipe)[2]
     [gen(e) for e in 1:length(alg)]
-    []
 end
-
+#==
 function vect()
 
 end
@@ -67,5 +80,7 @@ end
 function getindex()
 
 end
+==#
 
+export AlgebraFrame, Algebra, AlgebraVector
 end # module Algia
