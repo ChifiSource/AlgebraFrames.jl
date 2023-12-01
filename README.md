@@ -1,6 +1,7 @@
 <div align="center">
   <img src="https://github.com/ChifiSource/image_dump/blob/main/algia/Algia.png"></img>
   <h6>soon to come: algia</h6>
+</div>
 
 Algia provides Julia with a high-level lazy algebriac framework which includes an `AlgebraVector`, multi-dimensional `Algebra`, and an `AlgebraFrame`. There are a few specific goals that this package hopes to achieve on the front of **out-of-memory** data.
 - **live-wrangled** data. This means data that is never brought into Julia until calculation time. Using Algia, we will be able to make an algebraic object which represents data from a request, file, or data-base cursor, for example. One of the many applications of this project will be [ToolipsORM](https://github.com/ChifiSource/ToolipsORM.jl), providing algebraic relational objects for remote data-bases. Likewise, this will also be forged to work with requests, and I am also considering making some seeking readers for this same application.
