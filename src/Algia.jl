@@ -14,12 +14,18 @@ abstract type AbstractAlgebra end
 
 length(a::AbstractAlgebra) = a.length::Int64
 
+mutable struct AlgebraIndex <: AbstractAlgebra
+    f::Function
+    index::UnitRange{Int64}
+    columns::UnitRange{Int64}
+end
+
 mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
-    pipe::Dict{Tuple, Function}
+    pipe::Vector{AlgebraIndex}
     length::Int64
-    Algebra{T, N}(f::Function, length::Int64) where {T <: Any, N <: Any} = begin
-        funcs::Dict{Tuple, Function} = Dict{Tuple, Function}()
-        push!(funcs, (length, N) => f)
+    Algebra{T, N}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where {T <: Any, N <: Any} = begin
+        funcs::Vector{AlgebraIndex} = Vector{AlgebraIndex}()
+        push!(funcs, AlgebraIndex(f, 1:length, 1:N))
         new{T, N}(funcs, length)::AbstractAlgebra
     end 
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
@@ -52,7 +58,8 @@ end
 # algebra interface
 function (:)(alg::AbstractAlgebra, f::Function)
     w = typeof(alg).parameters[2]
-    push!(alg.pipe, (alg.length, w) => f)
+    indx = AlgebraIndex(f, 1:alg.length, 1:w)
+    push!(alg.pipe, indx)
 end
 
 function (:)(T::Type, un::Int64, f::Function = x -> 0)
@@ -69,12 +76,19 @@ end
 ==#
 # generation interface
 function Vector(alg::Algebra{<:Any, 1})
-    gen = first(alg.pipe)[2]
-    [gen(e) for e in 1:length(alg)]
+    gen = first(alg.pipe).f
+    generated = [gen(e) for e in 1:length(alg)]
+    for index in alg.pipe
+        except = generated[index.index]
+        index.f(except)
+        generated[index.index] .= except 
+    end
+    generated::AbstractArray
 end
+
+
 #==
 function vect()
-
 end
 
 function getindex()
