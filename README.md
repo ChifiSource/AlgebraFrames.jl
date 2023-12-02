@@ -16,14 +16,14 @@ Algia provides Julia with a high-level lazy algebriac framework which includes a
     - [generation]()
     - [mutation]()
     - [examples]()
-  - [Algebra]()
-    - [creation]()
-    - [mutation]()
-    - [generation]()
-  - [AlgebraFrame]()
-    - [creation]()
-    - [mutation]()
-    - [generation]()
+- [Algebra]()
+  - [creation]()
+  - [mutation]()
+  - [generation]()
+- [AlgebraFrame]()
+  - [creation]()
+  - [mutation]()
+  - [generation]()
   
 #### getting started
 `Algia` is still in a pretty early working form, though the project is **surprisingly far along** considering how little time has been invested into actually creating it. As of right now, most of the functionality revolves around a `Vector` of algebra, most of the functions for a 1-dimensional `Algebra` already exist. There are still more bindings to do, and with time I will **surely** be coming up with new bindings to do different things.
