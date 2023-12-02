@@ -10,20 +10,8 @@ This software is MIT-licensed.
 module Algia
 import Base: (:), getindex, setindex!, vect, Vector, show, length
 
-"""
-### abstract type **AbstractAlgebra**
-
-### Consistencies
-- pipe::Vector{AlgebraIndex}
-- length::Int64
-```
-"""
-abstract type AbstractAlgebra end
-
 include("algebra.jl")
 include("algebraframes.jl")
 
-
-length(a::AbstractAlgebra) = a.length::Int64
 export AlgebraFrame, Algebra, AlgebraVector
 end # module Algia
