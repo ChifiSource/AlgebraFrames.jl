@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://github.com/ChifiSource/image_dump/blob/main/algia/Algia.png"></img>
+  <img src="https://github.com/ChifiSource/image_dump/blob/main/algia/Algia.png" width="200"></img>
   <h6>soon to come: algia</h6>
 </div>
 
@@ -8,13 +8,33 @@ Algia provides Julia with a high-level lazy algebriac framework which includes a
 - **mutated copies**. In Science, there are an array of situations where we need to apply operations over a large amount of data -- typically, we will create a copy of an data and then we will mutate a now second version of our data in memory. Algia seeks to mitigate the memory usage of this by allowing us to instead create an algebraic representation of those changes, storing the `Vector` as a reference to itself inside of the `Function` which generates our initial array.
 - **manual compute**. In addition to the other things that `Algia` offers; one aspect of lazy calculation is simple yet still rings vital. We are able to choose when our machine engages in certain data processes.
 
-###### current form
+###### map
+- [getting started](#getting-started)
+  - [adding algia](#adding-algia)
+  - [usage]()
+    - [creation]()
+    - [generation]()
+    - [mutation]()
+    - [examples]()
+  - [Algebra]()
+    - [creation]()
+    - [mutation]()
+    - [generation]()
+  - [AlgebraFrame]()
+    - [creation]()
+    - [mutation]()
+    - [generation]()
+  
+#### getting started
 `Algia` is still in a pretty early working form, though the project is **surprisingly far along** considering how little time has been invested into actually creating it. As of right now, most of the functionality revolves around a `Vector` of algebra, most of the functions for a 1-dimensional `Algebra` already exist. There are still more bindings to do, and with time I will **surely** be coming up with new bindings to do different things.
 
 The `Algia` process consists of three main parts...
 - creation
 - mutation
 - and generation
+#### adding algia
+
+### usage
 ###### creation
 **Creation** is the first step in this process, and creation of algebra with `Algia` revolves primarily around the colon, `:`. To create new `Algebra`, we provide `:` with a `Type` and dimensions. We are able to provide an `Int64`, for 1-dimensional length, or a `Tuple` of Int64s representing dimensions:
 ```julia
