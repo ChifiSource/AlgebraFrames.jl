@@ -67,6 +67,13 @@ function (:)(alg::AbstractAlgebra, dim::Tuple, f::Function)
     push!(alg.pipe, indx)
 end
 
+function (:)(alg::AbstractAlgebra, dim::UnitRange{Int64}, f::Function)
+    w = typeof(alg).parameters[2]
+    indx = AlgebraIndex(f, dim ...)
+    push!(alg.pipe, indx)
+end
+
+
 function vect(alg::Algebra{<:Any, 1})
     gen = first(alg.pipe).f
     generated = [gen(e) for e in 1:length(alg)]
@@ -125,6 +132,11 @@ function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64} = 1:alg.length)
     generated = [gen(e) for e in row]
     for index in alg.pipe[2:length(alg.pipe)]
         ind = index.index
+        commons = findall(i -> i in row, Vector(generated))
+        if length(commons) == 0
+            continue
+        end
+        ind = minimum(commons):maximum(commons)
         except = generated[ind]
         start = minimum(ind) - 1
         startlen = length(except)
@@ -142,8 +154,8 @@ end
 function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
     generated = first(alg.pipe).f([dim])
     for index in alg.pipe[2:length(alg.pipe)]
-        if generated[1] in index.index
-            index.f(generated)
+        if dim in index.index
+            index.f([generated])
         end
     end
     generated
