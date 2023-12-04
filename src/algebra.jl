@@ -1,3 +1,9 @@
+#==| Hi friend, welcome to `algebra.jl`. Here is a map.
+- Algebra
+- Algebra Base
+- Algebra creation (:)
+- Algebra generation (vect, getindex, eachrow ...)
+==#
 """
 ### abstract type **AbstractAlgebra**
 
@@ -20,16 +26,16 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
         new{T, N}(funcs, length)::AbstractAlgebra
     end 
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
-        Algebra{T, width}(x -> 0, length)::AbstractAlgebra
+        Algebra{T, width}(f, length)::AbstractAlgebra
     end
     Algebra{T}(f::Function = x -> 0.0, length::Int64 = 1, width::Int64 = 1) where T <: AbstractFloat = begin
-        Algebra{T, width}(x -> 0.0, length)::AbstractAlgebra
+        Algebra{T, width}(f, length)::AbstractAlgebra
     end
     Algebra{T}(f::Function = x -> true, length::Int64 = 1, width::Int64 = 1) where T <: Bool = begin
-        Algebra{T, width}(x -> true, length)::AbstractAlgebra
+        Algebra{T, width}(f, length)::AbstractAlgebra
     end
     Algebra{T}(f::Function = x -> "nothing", length::Int64 = 1, width::Int64 = 1) where T <: AbstractString = begin
-        Algebra{T, width}(x -> "nothing", length)::AbstractAlgebra
+        Algebra{T, width}(f, length)::AbstractAlgebra
     end
     Algebra{T}(f::Function, dim::Tuple) where T <: Any = begin
         if length(dim) == 1
@@ -62,6 +68,7 @@ function reshape()
 
 end
 
+# creation
 function (:)(T::Type, un::Int64, f::Function = x -> 0)
     Algebra{T}(f, un, 1)::Algebra{T, 1}
 end
@@ -72,6 +79,31 @@ end
 
 function (:)(alg::AbstractAlgebra, f::Function)
     push!(alg.pipe, f)
+end
+
+# algebraic indexing
+function (:)(alg::AbstractAlgebra, dim::Tuple)
+    T = typeof(alg).parameters[1]
+    gen::AbstractArray = alg[dim[1], dim[2]]
+    Algebra{T}(dim) do e
+        gen[e]
+    end
+end
+
+function (:)(alg::AbstractAlgebra, dim::Int64)
+    T = typeof(alg).parameters[1]
+    gen::AbstractArray = alg[dim[1], dim[2]]
+    Algebra{T}(1) do e
+        gen[e]
+    end
+end
+
+function (:)(alg::AbstractAlgebra, dim::UnitRange{Int64})
+    T = typeof(alg).parameters[1]
+    gen::AbstractArray = alg[dim]
+    Algebra{T}(length(gen)) do e
+        gen[e]
+    end
 end
 
 function vect(alg::Algebra{<:Any, 1})
@@ -96,7 +128,7 @@ function vect(alg::AbstractAlgebra)
     [begin
         generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
         lastlen += len
-    end for column in 1:N]
+    end for column in 2:N]
     [begin
         try
             func(generated)
@@ -107,38 +139,44 @@ function vect(alg::AbstractAlgebra)
     generated::AbstractArray
 end
 
-function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64} = 1:alg.length)
-    gen = first(alg.pipe).f
+function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
+    gen = first(alg.pipe)
     generated = [gen(e) for e in row]
-    for index in alg.pipe[2:length(alg.pipe)]
-        ind = index.index
-        commons = findall(i -> i in row, Vector(generated))
-        if length(commons) == 0
-            continue
+    N = typeof(alg).parameters[2]
+    [begin
+        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+        lastlen += len
+    end for column in 2:N]
+    [begin
+        try
+            func(generated)
+        catch e
+            throw("Algebra error todo here")
         end
-        ind = minimum(commons):maximum(commons)
-        except = generated[ind]
-        start = minimum(ind) - 1
-        startlen = length(except)
-        nd = maximum(ind) + 1
-        index.f(except)
-        if length(except) != startlen
-            difference = startlen - length(except)
-            alg.length -= difference
-        end
-        generated = vcat(generated[1:start], except, generated[nd:length(generated)])
-    end
+    end for func in alg.pipe[2:length(alg.pipe)]]
     generated::AbstractArray
 end
 
 function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
-    generated = first(alg.pipe).f([dim])
-    for index in alg.pipe[2:length(alg.pipe)]
-        if dim in index.index
-            index.f([generated])
+    generated = first(alg.pipe)([dim])
+    N = typeof(alg).parameters[2]
+    [begin
+        try
+            func(generated)
+        catch e
+            throw("Algebra error todo here")
         end
-    end
-    generated
+    end for func in alg.pipe[2:length(alg.pipe)]]
+    generated::Any
+end
+
+function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
+    println(row, col)
+    println("called 2 range")
+end
+
+function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
+    println("called single multidim")
 end
 
 function eachrow(alg::AbstractAlgebra)
@@ -146,13 +184,5 @@ function eachrow(alg::AbstractAlgebra)
 end
 
 function eachcol(alg::AbstractAlgebra)
-
-end
-
-function getindex(alg::AbstractAlgebra, row::UnitRange{Int64} = 1:alg.length, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
-
-end
-
-function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
 
 end

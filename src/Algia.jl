@@ -8,6 +8,7 @@ This software is MIT-licensed.
 
 """
 module Algia
+
 import Base: (:), getindex, setindex!, vect, Vector, show, length
 
 include("algebra.jl")
