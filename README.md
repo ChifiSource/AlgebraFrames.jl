@@ -10,23 +10,22 @@ Algia provides Julia with a high-level lazy algebriac framework which includes a
 
 ###### map
 - [getting started](#getting-started)
+  - [explanation](#explanation)
   - [adding algia](#adding-algia)
-  - [usage]()
-    - [creation]()
-    - [generation]()
-    - [mutation]()
-    - [examples]()
-- [Algebra]()
-  - [creation]()
-  - [mutation]()
-  - [generation]()
-- [AlgebraFrame]()
-  - [creation]()
-  - [mutation]()
-  - [generation]()
+- [usage](#usage)
+  - [creation](#creation)
+  - [generation](#generation)
+  - [mutation](#mutation)
+  - [examples](#examples)
+- [Algebra](#algebra)
+  - [creation](#creating-algebra)
+  - [mutation](#mutating-algebra)
+  - [generation](#generating-algebra)
+- [AlgebraFrame](#algebra-frame)
   
-#### getting started
+### get started
 `Algia` is still in a pretty early working form, though the project is **surprisingly far along** considering how little time has been invested into actually creating it. As of right now, most of the functionality revolves around a `Vector` of algebra, most of the functions for a 1-dimensional `Algebra` already exist. There are still more bindings to do, and with time I will **surely** be coming up with new bindings to do different things.
+##### explanation
 
 The `Algia` process consists of three main parts...
 - creation
@@ -108,3 +107,11 @@ alg:x -> filter!(y -> y == 1, x)
 1-element Vector{Int64}:
  1
 ```
+#### examples
+
+### algebra
+#### algebra creation
+#### algebra mutation
+#### algebra generation
+### algebra frame
+
