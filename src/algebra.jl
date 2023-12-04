@@ -64,7 +64,7 @@ function show(io::IO, algebra::Algebra{<:Any, <:Any})
     println(io, "$T $(rows)x$cols")
 end
 
-function reshape()
+function reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
 
 end
 
@@ -90,20 +90,20 @@ function (:)(alg::AbstractAlgebra, dim::Tuple)
         seconddim = dim[2]
     end
     gen::AbstractArray = alg[dim[1], seconddim]
-    Algebra{T}(length(gen)) do e
+    Algebra{T}(size(gen)) do e
         gen[e]
     end
 end
 
-function (:)(alg::AbstractAlgebra, dim::Int64)
+function (:)(alg::AbstractAlgebra, dim::Int64, col::Int64 = 1)
     T = typeof(alg).parameters[1]
-    gen::AbstractArray = alg[dim[1], dim[2]]
+    gen::AbstractArray = alg[dim, col]
     Algebra{T}(1) do e
         gen[e]
     end
 end
 
-function (:)(alg::AbstractAlgebra, dim::UnitRange{Int64})
+function (:)(alg::AlgebraVector{<:Any}, dim::UnitRange{Int64})
     T = typeof(alg).parameters[1]
     gen::AbstractArray = alg[dim]
     Algebra{T}(length(gen)) do e
@@ -111,6 +111,7 @@ function (:)(alg::AbstractAlgebra, dim::UnitRange{Int64})
     end
 end
 
+# generation
 function vect(alg::Algebra{<:Any, 1})
     gen = first(alg.pipe)
     generated = [gen(e) for e in 1:length(alg)]
@@ -197,6 +198,10 @@ end
 function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
     println("called single multidim")
 end
+
+getindex(alg::AbstractAlgebra, dim::Int64, col::UnitRange{Int64}) = getindex(alg, dim:dim, col)
+
+getindex(alg::AbstractAlgebra, dim::UnitRange{Int64}, col::Int64) = getindex(alg, dim, col:col)
 
 function eachrow(alg::AbstractAlgebra)
 
