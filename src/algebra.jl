@@ -83,9 +83,14 @@ end
 
 # algebraic indexing
 function (:)(alg::AbstractAlgebra, dim::Tuple)
-    T = typeof(alg).parameters[1]
-    gen::AbstractArray = alg[dim[1], dim[2]]
-    Algebra{T}(dim) do e
+    typ = typeof(alg)
+    T = typ.parameters[1]
+    seconddim = typ.parameters[2]
+    if length(dim) == 2
+        seconddim = dim[2]
+    end
+    gen::AbstractArray = alg[dim[1], seconddim]
+    Algebra{T}(length(gen)) do e
         gen[e]
     end
 end
@@ -171,8 +176,22 @@ function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
 end
 
 function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
-    println(row, col)
-    println("called 2 range")
+    gen = first(alg.pipe)
+    generated = [gen(e) for e in row]
+    len = length(generated)
+    lastlen = length(generated)
+    [begin
+        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+        lastlen += len
+    end for column in col[2:length(col)]]
+    [begin
+        try
+            func(generated)
+        catch e
+            throw("Algebra error todo here")
+        end
+    end for func in alg.pipe[2:length(alg.pipe)]]
+    generated::AbstractArray
 end
 
 function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
