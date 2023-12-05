@@ -1,3 +1,9 @@
+#==| Hi friend, welcome to `algebraframes.jl`. Here is a map.
+- AlgebraFrame
+- AlgebraFrame creation (:)
+- Algebra generation (vect, getindex, eachrow ...)
+- RowElement (row indexing/filtering)
+==#
 mutable struct AlgebraFrame{N <: Any}
     names::Vector{String}
     algebra::Algebra{Any, N}
@@ -46,15 +52,30 @@ end
 
 # generation
 function getindex(af::AlgebraFrame{<:Any}, column::String, r::UnitRange{Int64} = 1:af.algebra.length)
-    colaxis = findfirst(x -> x == column, names)
+    colaxis = findfirst(x -> x == column, af.names)
     af.algebra[r, colaxis:colaxis]
 end
 
-getindex(af::AlgebraFrame{<:Any}, args ...) = (:)(alg.algebra, args ...)
+getindex(af::AlgebraFrame{<:Any}, args ...) = getindex(af.algebra, args ...)
 
 vect(af::AlgebraFrame{<:Any}) = vect(af.algebra)
 
 function show(io::IO, algebra::AlgebraFrame{<:Any})
-    previews = [algebra[name, 1:5] for name in algebra.names]
-    println(io, "$T $(rows)x$cols")
+    println(io, "frame")
+end
+
+# rows
+mutable struct RowElement
+    name::String
+    value::Any
+end
+
+function filter!(f::Function, af::AlgebraFrame{<:Any})
+    af:vec -> begin
+    #    mask = [Dict(names[row] => vec[] in 1:length(row))) for row in eachrow(vec)]
+    end
+end
+
+function pairs(af::AlgebraFrame{<:Any})
+    Dict(name => af[1:length(af), e] for (e, name) in enumerate(af.names))
 end
