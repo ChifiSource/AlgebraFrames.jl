@@ -28,15 +28,6 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
         Algebra{T, width}(f, length)::AbstractAlgebra
     end
-    Algebra{T}(f::Function = x -> 0.0, length::Int64 = 1, width::Int64 = 1) where T <: AbstractFloat = begin
-        Algebra{T, width}(f, length)::AbstractAlgebra
-    end
-    Algebra{T}(f::Function = x -> true, length::Int64 = 1, width::Int64 = 1) where T <: Bool = begin
-        Algebra{T, width}(f, length)::AbstractAlgebra
-    end
-    Algebra{T}(f::Function = x -> "nothing", length::Int64 = 1, width::Int64 = 1) where T <: AbstractString = begin
-        Algebra{T, width}(f, length)::AbstractAlgebra
-    end
     Algebra{T}(f::Function, dim::Tuple) where T <: Any = begin
         if length(dim) == 1
             Algebra{T}(f, dim[1], 1)
@@ -64,18 +55,26 @@ function show(io::IO, algebra::Algebra{<:Any, <:Any})
     println(io, "$T $(rows)x$cols")
 end
 
-function reshape()
+function reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
 
 end
 
+algebra_initializer(T::Type{Int64}) = x -> 0
+algebra_initializer(T::Type{Float64}) = x -> 0.0
+algebra_initializer(T::Type{String}) = x -> "null"
+
+
+
 # creation
-function (:)(T::Type, un::Int64, f::Function = x -> 0)
+function (:)(T::Type{<:Any}, un::Int64, f::Function = algebra_initializer(T))
     Algebra{T}(f, un, 1)::Algebra{T, 1}
 end
 
-function (:)(T::Type, dim::Tuple, f::Function = x -> 0)
-    Algebra{T}(f, dim)
+function (:)(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
+    Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
+
+
 
 function (:)(alg::AbstractAlgebra, f::Function)
     push!(alg.pipe, f)
@@ -90,20 +89,20 @@ function (:)(alg::AbstractAlgebra, dim::Tuple)
         seconddim = dim[2]
     end
     gen::AbstractArray = alg[dim[1], seconddim]
-    Algebra{T}(length(gen)) do e
+    Algebra{T}(size(gen)) do e
         gen[e]
     end
 end
 
-function (:)(alg::AbstractAlgebra, dim::Int64)
+function (:)(alg::AbstractAlgebra, dim::Int64, col::Int64 = 1)
     T = typeof(alg).parameters[1]
-    gen::AbstractArray = alg[dim[1], dim[2]]
+    gen::AbstractArray = alg[dim, col]
     Algebra{T}(1) do e
         gen[e]
     end
 end
 
-function (:)(alg::AbstractAlgebra, dim::UnitRange{Int64})
+function (:)(alg::AlgebraVector{<:Any}, dim::UnitRange{Int64})
     T = typeof(alg).parameters[1]
     gen::AbstractArray = alg[dim]
     Algebra{T}(length(gen)) do e
@@ -111,6 +110,7 @@ function (:)(alg::AbstractAlgebra, dim::UnitRange{Int64})
     end
 end
 
+# generation
 function vect(alg::Algebra{<:Any, 1})
     gen = first(alg.pipe)
     generated = [gen(e) for e in 1:length(alg)]
@@ -197,6 +197,10 @@ end
 function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
     println("called single multidim")
 end
+
+getindex(alg::AbstractAlgebra, dim::Int64, col::UnitRange{Int64}) = getindex(alg, dim:dim, col)
+
+getindex(alg::AbstractAlgebra, dim::UnitRange{Int64}, col::Int64) = getindex(alg, dim, col:col)
 
 function eachrow(alg::AbstractAlgebra)
 
