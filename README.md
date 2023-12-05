@@ -9,77 +9,59 @@ Algia provides Julia with a high-level lazy algebriac framework which includes a
 - **manual compute**. In addition to the other things that `Algia` offers; one aspect of lazy calculation is simple yet still rings vital. We are able to choose when our machine engages in certain data processes.
 
 ###### map
-- [getting started](#getting-started)
-  - [explanation](#explanation)
+- [get started](#get-started)
   - [adding algia](#adding-algia)
+  - [explanation](#explanation)
 - [usage](#usage)
   - [creation](#creation)
   - [generation](#generation)
   - [mutation](#mutation)
   - [examples](#examples)
 - [Algebra](#algebra)
-  - [creation](#creating-algebra)
-  - [mutation](#mutating-algebra)
-  - [generation](#generating-algebra)
+  - [creation](#algebra-creation)
+  - [mutation](#algebra-mutation)
+  - [generation](#algebra-generation)
 - [AlgebraFrame](#algebra-frame)
   
 ### get started
 `Algia` is still in a pretty early working form, though the project is **surprisingly far along** considering how little time has been invested into actually creating it. As of right now, most of the functionality revolves around a `Vector` of algebra, most of the functions for a 1-dimensional `Algebra` already exist. There are still more bindings to do, and with time I will **surely** be coming up with new bindings to do different things.
+###### adding algia
+```julia
+using Pkg
+Pkg.add("Algia")
+```
+**Unstable**
+```julia
+using Pkg
+Pkg.add("Algia", rev = "Unstable")
+```
 ##### explanation
-
-The `Algia` process consists of three main parts...
+Memory is a significant problem in the world of Scientific Computing. One of the most prominent solutions to this problem is called lazy execution. `Algia` simplifies lazy algebraic operations in Julia, providing flexibility in the **creation**, **mutation**, and **generation** of `Array` data in Julia. The package provides an `Array` equivalent in the form of `Algebra` and an `AlgebraFrame` which wraps the `Algebra` into a table.
+### usage
+The typical `Algia` process consists of three major steps:
 - creation
 - mutation
 - and generation
-#### adding algia
 
-### usage
+In the creation step, we use `:` or a constructor to create some `Algebra`. In the mutation step, we use `:` to mutate the the generated return `Vector` inside of a `Function`. Finally, in the generation step we retrieve our data.
 ###### creation
 **Creation** is the first step in this process, and creation of algebra with `Algia` revolves primarily around the colon, `:`. To create new `Algebra`, we provide `:` with a `Type` and dimensions. We are able to provide an `Int64`, for 1-dimensional length, or a `Tuple` of Int64s representing dimensions:
 ```julia
-alg = Int64:10
-AlgebraVector{Int64}(Algia.AlgebraIndex[Algia.AlgebraIndex(Algia.var"#75#85"(), 1:10, 1:1)], 10)
+myalg = Int64:5
+Int64 2x5
 
-multialg = String:(5, 5)
-Algebra{String, 5}(Algia.AlgebraIndex[Algia.AlgebraIndex(Algia.var"#81#91"(), 1:5, 1:5)], 5)
+myalgebra = String:(5, 5)
+String 5x5
 ```
-We are also able to create `Algebra` from existing data structures. This applies in the context of **mutated copies** above, for example.
+Algebra can also be created from other `Algebra`.
 ```julia
-myvec = [1, 2, 3]
-newalg = Algebra(myvec)
-
-AlgebraVector{Int64}(Algia.AlgebraIndex[Algia.AlgebraIndex(Algia.var"#82#92"{Vector{Int64}}([1, 2, 3]), 1:3, 1:1)], 3)
+just3 = myalg:(1:3)
+Int64 3x1
 ```
-###### generation
-The next step in this process would be **mutation**, but to make this process make a bit more sense, we will first discuss **generation**. If we want to generate a specific index of our `Algebra`, we use `getindex`. Note that indexing will always generate. To generate the whole thing, we can either index with nothing, `alg[]` or use `Vector` delimeters to `vect` the `Algebra`.
+Finally, we are also able to create `Algebra` from existing data structures. If we want to create algebra from data, we provide the data to the `Algebra` constructor.
 ```julia
-[alg]
-10-element Vector{Int64}:
- 0
- 0
- 0
- 0
- 0
- 0
- 0
- 0
- 0
- 0
-
-[multialg]
-5×5 Matrix{String}:
- "nothing"  "nothing"  "nothing"  "nothing"  "nothing"
- "nothing"  "nothing"  "nothing"  "nothing"  "nothing"
- "nothing"  "nothing"  "nothing"  "nothing"  "nothing"
- "nothing"  "nothing"  "nothing"  "nothing"  "nothing"
- "nothing"  "nothing"  "nothing"  "nothing"  "nothing"
-```
-Using `getindex` works with ranges and integers, exactly how one might expect and will only generate that range.
-```julia
-alg[3]
-0
-alg[3:4]
-[0, 0]
+newalg = Algebra([5, 10, 15])
+Int64 3x1
 ```
 ###### mutation
 Like **creation**, **mutation** in `Algia` centers around the colon, `:`. In order to mutate some `Algebra`, we provide the `Algebra` and a `Function` to `:`.
@@ -99,7 +81,7 @@ alg:x -> x[1] += 1
  0
  0
 ```
-Whereas **generation** will provide the enumeration of our value, **mutation** will provide us an entire `Vector` of the portion we have selected. Here, for example, I utilize `filter!` to mutate our `Algebra`.
+Whereas our initialization `Function` provided during **creation** will provide the enumeration of our value, **mutation** will provide us an entire `Vector` of the portion we have selected. Here, for example, I utilize `filter!` to mutate our `Algebra`.
 ```julia
 alg:x -> filter!(y -> y == 1, x)
 
@@ -107,6 +89,8 @@ alg:x -> filter!(y -> y == 1, x)
 1-element Vector{Int64}:
  1
 ```
+###### generation
+
 #### examples
 
 ### algebra
