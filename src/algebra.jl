@@ -28,15 +28,6 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
         Algebra{T, width}(f, length)::AbstractAlgebra
     end
-    Algebra{T}(f::Function = x -> 0.0, length::Int64 = 1, width::Int64 = 1) where T <: AbstractFloat = begin
-        Algebra{T, width}(f, length)::AbstractAlgebra
-    end
-    Algebra{T}(f::Function = x -> true, length::Int64 = 1, width::Int64 = 1) where T <: Bool = begin
-        Algebra{T, width}(f, length)::AbstractAlgebra
-    end
-    Algebra{T}(f::Function = x -> "nothing", length::Int64 = 1, width::Int64 = 1) where T <: AbstractString = begin
-        Algebra{T, width}(f, length)::AbstractAlgebra
-    end
     Algebra{T}(f::Function, dim::Tuple) where T <: Any = begin
         if length(dim) == 1
             Algebra{T}(f, dim[1], 1)
@@ -68,14 +59,22 @@ function reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
 
 end
 
+algebra_initializer(T::Type{Int64}) = x -> 0
+algebra_initializer(T::Type{Float64}) = x -> 0.0
+algebra_initializer(T::Type{String}) = x -> "null"
+
+
+
 # creation
-function (:)(T::Type, un::Int64, f::Function = x -> 0)
+function (:)(T::Type{<:Any}, un::Int64, f::Function = algebra_initializer(T))
     Algebra{T}(f, un, 1)::Algebra{T, 1}
 end
 
-function (:)(T::Type, dim::Tuple, f::Function = x -> 0)
-    Algebra{T}(f, dim)
+function (:)(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
+    Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
+
+
 
 function (:)(alg::AbstractAlgebra, f::Function)
     push!(alg.pipe, f)
