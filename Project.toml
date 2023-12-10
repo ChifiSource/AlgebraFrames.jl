@@ -1,0 +1,4 @@
+name = "AlgebraFrames"
+uuid = "3d1931d7-11da-4565-bc0b-1bff9a220d11"
+authors = ["emmac <emmacboudreau@gmail.com>"]
+version = "0.1.0"
