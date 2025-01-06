@@ -69,7 +69,7 @@ function show(io::IO, algebra::AlgebraFrame{<:Any})
 end
 
 # rows
-mutable struct FrameRow <: AbstractAlgebra
+mutable struct FrameRow
     names::Vector{String}
     values::Vector{<:Any}
 end
@@ -80,6 +80,13 @@ function filter!(f::Function, af::AlgebraFrame{<:Any})
     end
 end
 
+eachrow(af::AlgebraFrame) = eachrow()
+
+
 function pairs(af::AlgebraFrame{<:Any})
-    Dict(name => af[1:length(af), e] for (e, name) in enumerate(af.names))
+    cols = eachcol(af.algebra)
+    names = af.names
+    [begin 
+        names[e] => cols[e]
+    end for e in 1:length(cols)]
 end
