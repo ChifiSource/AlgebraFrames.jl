@@ -39,6 +39,18 @@ my_data = Int16:(50, 50)
 # peeking with `getindex`:
 my_data[1:15]
 
+# normalization example:
+
+my_data = Float64:(50, 50):e -> randn()
+
+using Statistics; std, mean
+
+my_data:mat -> begin
+    mu = mean(mat)
+    sigma = std(mat)
+    [(xbar - mu) / sigma for xbar in mat]
+end
+
 # AlgebraFrame:
 mydata = 15:["name", "number", "directory", "group"]
 

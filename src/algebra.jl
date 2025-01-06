@@ -21,13 +21,12 @@ shape(a::AbstractAlgebra) = (a.length, typeof(a).parameters[2])::Tuple{Int64, In
 mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     pipe::Vector{Function}
     length::Int64
-    store::Dict{Symbol, Any}
     Algebra{T, N}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where {T <: Any, N <: Any} = begin
         funcs::Vector{Function} = Vector{Function}([f])
-        new{T, N}(funcs, length, Dict{Symbol, Any}())::AbstractAlgebra
+        new{T, N}(funcs, length)::AbstractAlgebra
     end
     function Algebra{T}(algebra::Algebra{<:Any, <:Any}) where T <: Any
-        new{T, typeof(algebra).parameters[2]}(algebra.pipe, algebra.length, algebra.store)
+        new{T, typeof(algebra).parameters[2]}(algebra.pipe, algebra.length)
     end
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
         Algebra{T, width}(f, length)::AbstractAlgebra
@@ -86,9 +85,18 @@ end
 
 # generation
 
-function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
+function generate(alg::Algebra{<:Any, <:Any}, row::UnitRange{Int64})
     gen = first(alg.pipe)
-    generated = [gen(e) for e in row]
+    params = methods(gen)[1].sig.parameters
+    if length(params) > 1 && params[2] == Int64
+        [gen(e) for e in row]
+    else
+        gen()[row]
+    end
+end
+
+function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
+    generated = generate(alg, row)
     N = typeof(alg).parameters[2]
     [begin
         generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
@@ -104,8 +112,19 @@ function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
     generated::AbstractArray
 end
 
+function generate(alg::Algebra{<:Any, <:Any}, dim::Int64)
+    gen = first(alg.pipe)
+    params = methods(gen)[1].sig.parameters
+    if length(params) > 1 && params[2] == Int64
+        gen(dim)
+    else
+        gen()[dim]
+    end
+end
+
+
 function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
-    generated = first(alg.pipe)([dim])
+    generated = generate(alg, dim)
     N = typeof(alg).parameters[2]
     [begin
         try
@@ -137,24 +156,29 @@ function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{In
 end
 
 function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
-    println("called single multidim")
-end
-
-function getindex(alg::AbstractAlgebra, store::Symbol)
-    alg.store[store]
-end
-
-function setindex!(alg::AbstractAlgebra, a::Any, store::Symbol)
-    alg.store[store] = a
+    if col == 1
+        alg[dim]
+    else
+        throw("Algebra error TODO here")
+    end
 end
 
 getindex(alg::AbstractAlgebra, dim::Int64, col::UnitRange{Int64}) = getindex(alg, dim:dim, col)
 
 getindex(alg::AbstractAlgebra, dim::UnitRange{Int64}, col::Int64) = getindex(alg, dim, col:col)
 
-function vect(alg::Algebra{<:Any, 1})
+function generate(alg::Algebra{<:Any, <:Any})
     gen = first(alg.pipe)
-    generated = [gen(e) for e in 1:length(alg)]
+    params = methods(gen)[1].sig.parameters
+    if length(params) > 1 && params[2] == Int64
+        [gen(dim) for dim in 1:length(alg)]
+    else
+        gen()
+    end
+end
+
+function vect(alg::Algebra{<:Any, 1})
+    generated = generate(alg)
     [begin
         try
             func(generated)
@@ -166,8 +190,7 @@ function vect(alg::Algebra{<:Any, 1})
 end
 
 function vect(alg::AbstractAlgebra)
-    gen = first(alg.pipe)
-    generated = [gen(e) for e in 1:length(alg)]
+    generated = generate(alg)
     len = length(generated)
     lastlen = length(generated)
     N = typeof(alg).parameters[2]

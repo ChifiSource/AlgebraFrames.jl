@@ -8,10 +8,9 @@ mutable struct AlgebraFrame{N <: Any} <: AbstractAlgebra
     names::Vector{String}
     T::Vector{Type}
     algebra::Algebra{Any, N}
-    store::Dict{Symbol, Any}
     AlgebraFrame(names::Vector{String}, algebra::Algebra{Any, <:Any}) = begin
         N = length(names)
-        new{N}(names, Vector{Type}([Any for n in 1:length(names)]), algebra, Dict{Symbol, Any}())
+        new{N}(names, Vector{Type}([Any for n in 1:length(names)]), algebra)
     end
     function AlgebraFrame(f::Function, observations::Int64, names::String ...)
         algebra = Algebra{Any}(f, observations, length(names))
