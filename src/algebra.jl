@@ -99,7 +99,7 @@ function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
     generated = generate(alg, row)
     N = typeof(alg).parameters[2]
     [begin
-        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+        generated = hcat(generated, [gen(alg, row) for e in lastlen + 1:(lastlen + len)])
         lastlen += len
     end for column in 2:N]
     [begin
@@ -136,6 +136,27 @@ function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
     generated::Any
 end
 
+function generate(alg::Algebra{<:Any, <:Any}, row::UnitRange, col::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
+    # TODO
+    gen = first(alg.pipe)
+    params = methods(gen)[1].sig.parameters
+    if length(params) > 1
+        generated = [gen(dim) for dim in 1:length(alg)]
+        N = typeof(alg).parameters[2]
+        len = length(generated)
+        lastlen = length(generated)
+        if N > 1
+            [begin
+                generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+                lastlen += len
+            end for column in 2:N]
+        end
+        return(generated)
+    else
+        gen()
+    end
+end
+
 function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
     gen = first(alg.pipe)
     generated = [gen(e) for e in row]
@@ -159,7 +180,7 @@ function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
     if col == 1
         alg[dim]
     else
-        throw("Algebra error TODO here")
+        throw("Algebra Dimension error.")
     end
 end
 
@@ -170,8 +191,18 @@ getindex(alg::AbstractAlgebra, dim::UnitRange{Int64}, col::Int64) = getindex(alg
 function generate(alg::Algebra{<:Any, <:Any})
     gen = first(alg.pipe)
     params = methods(gen)[1].sig.parameters
-    if length(params) > 1 && params[2] == Int64
-        [gen(dim) for dim in 1:length(alg)]
+    if length(params) > 1
+        generated = [gen(dim) for dim in 1:length(alg)]
+        N = typeof(alg).parameters[2]
+        len = length(generated)
+        lastlen = length(generated)
+        if N > 1
+            [begin
+                generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+                lastlen += len
+            end for column in 2:N]
+        end
+        return(generated)
     else
         gen()
     end
@@ -191,13 +222,6 @@ end
 
 function vect(alg::AbstractAlgebra)
     generated = generate(alg)
-    len = length(generated)
-    lastlen = length(generated)
-    N = typeof(alg).parameters[2]
-    [begin
-        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
-        lastlen += len
-    end for column in 2:N]
     [begin
         try
             func(generated)
