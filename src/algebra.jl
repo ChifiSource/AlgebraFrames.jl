@@ -16,15 +16,19 @@ abstract type AbstractAlgebra end
 
 length(a::AbstractAlgebra) = a.length::Int64
 
-shape(a::AbstractAlgebra) = (a.length)::Tuple{Int64}
+shape(a::AbstractAlgebra) = (a.length, typeof(a).parameters[2])::Tuple{Int64, Int64}
 
 mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     pipe::Vector{Function}
     length::Int64
+    store::Dict{Symbol, Any}
     Algebra{T, N}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where {T <: Any, N <: Any} = begin
         funcs::Vector{Function} = Vector{Function}([f])
-        new{T, N}(funcs, length)::AbstractAlgebra
-    end 
+        new{T, N}(funcs, length, Dict{Symbol, Any}())::AbstractAlgebra
+    end
+    function Algebra{T}(algebra::Algebra{<:Any, <:Any}) where T <: Any
+        new{T, typeof(algebra).parameters[2]}(algebra.pipe, algebra.length, algebra.store)
+    end
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
         Algebra{T, width}(f, length)::AbstractAlgebra
     end
@@ -43,7 +47,7 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     end
 end
 
-const AlgebraVector{T} = Algia.Algebra{T,1}
+const AlgebraVector{T} = Algebra{T,1}
 
 function shape(algebra::Algebra{<:Any, <:Any})
     (algebra.length, typeof(algebra).parameters[2])
@@ -59,11 +63,11 @@ function reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
 
 end
 
+algebra_initializer(T::Type{<:Integer}) = x -> T(0)
 algebra_initializer(T::Type{Int64}) = x -> 0
+algebra_initializer(T::Type{<:AbstractFloat}) = x -> T(0.0)
 algebra_initializer(T::Type{Float64}) = x -> 0.0
 algebra_initializer(T::Type{String}) = x -> "null"
-
-
 
 # creation
 function (:)(T::Type{<:Any}, un::Int64, f::Function = algebra_initializer(T))
@@ -74,75 +78,13 @@ function (:)(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
     Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
 
-
-
 function (:)(alg::AbstractAlgebra, f::Function)
     push!(alg.pipe, f)
 end
 
-# algebraic indexing
-function (:)(alg::AbstractAlgebra, dim::Tuple)
-    typ = typeof(alg)
-    T = typ.parameters[1]
-    seconddim = typ.parameters[2]
-    if length(dim) == 2
-        seconddim = dim[2]
-    end
-    gen::AbstractArray = alg[dim[1], seconddim]
-    Algebra{T}(size(gen)) do e
-        gen[e]
-    end
-end
-
-function (:)(alg::AbstractAlgebra, dim::Int64, col::Int64 = 1)
-    T = typeof(alg).parameters[1]
-    gen::AbstractArray = alg[dim, col]
-    Algebra{T}(1) do e
-        gen[e]
-    end
-end
-
-function (:)(alg::AlgebraVector{<:Any}, dim::UnitRange{Int64})
-    T = typeof(alg).parameters[1]
-    gen::AbstractArray = alg[dim]
-    Algebra{T}(length(gen)) do e
-        gen[e]
-    end
-end
+(:)(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
 
 # generation
-function vect(alg::Algebra{<:Any, 1})
-    gen = first(alg.pipe)
-    generated = [gen(e) for e in 1:length(alg)]
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
-end
-
-function vect(alg::AbstractAlgebra)
-    gen = first(alg.pipe)
-    generated = [gen(e) for e in 1:length(alg)]
-    len = length(generated)
-    lastlen = length(generated)
-    N = typeof(alg).parameters[2]
-    [begin
-        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
-        lastlen += len
-    end for column in 2:N]
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
-end
 
 function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
     gen = first(alg.pipe)
@@ -198,14 +140,56 @@ function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
     println("called single multidim")
 end
 
+function getindex(alg::AbstractAlgebra, store::Symbol)
+    alg.store[store]
+end
+
+function setindex!(alg::AbstractAlgebra, a::Any, store::Symbol)
+    alg.store[store] = a
+end
+
 getindex(alg::AbstractAlgebra, dim::Int64, col::UnitRange{Int64}) = getindex(alg, dim:dim, col)
 
 getindex(alg::AbstractAlgebra, dim::UnitRange{Int64}, col::Int64) = getindex(alg, dim, col:col)
 
-function eachrow(alg::AbstractAlgebra)
+function vect(alg::Algebra{<:Any, 1})
+    gen = first(alg.pipe)
+    generated = [gen(e) for e in 1:length(alg)]
+    [begin
+        try
+            func(generated)
+        catch e
+            throw("Algebra error todo here")
+        end
+    end for func in alg.pipe[2:length(alg.pipe)]]
+    generated::AbstractArray
+end
 
+function vect(alg::AbstractAlgebra)
+    gen = first(alg.pipe)
+    generated = [gen(e) for e in 1:length(alg)]
+    len = length(generated)
+    lastlen = length(generated)
+    N = typeof(alg).parameters[2]
+    [begin
+        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+        lastlen += len
+    end for column in 2:N]
+    [begin
+        try
+            func(generated)
+        catch e
+            throw("Algebra error todo here")
+        end
+    end for func in alg.pipe[2:length(alg.pipe)]]
+    generated::AbstractArray
+end
+
+
+function eachrow(alg::AbstractAlgebra)
+    eachrow([alg])
 end
 
 function eachcol(alg::AbstractAlgebra)
-
+    eachcol([alg])
 end
