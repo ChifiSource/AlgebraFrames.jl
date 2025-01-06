@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="https://github.com/ChifiSource/image_dump/blob/main/algia/Algia.png" width="200"></img>
+  <img src="https://github.com/ChifiSource/image_dump/blob/main/algebraframes/alframe.png" width="200"></img>
   <h6>soon to come: algia</h6>
 </div>
 
-Algia provides Julia with a high-level lazy algebriac framework which includes an `AlgebraVector`, multi-dimensional `Algebra`, and an `AlgebraFrame`. There are a few specific goals that this package hopes to achieve on the front of **out-of-memory** data.
+`AlgebraFrames` provides several convenient *out-of-memory* data-structures for Julia. There are a few specific goals that this package hopes to achieve on the front of **out-of-memory** data.
 - **live-wrangled** data. This means data that is never brought into Julia until calculation time. Using Algia, we will be able to make an algebraic object which represents data from a request, file, or data-base cursor, for example. One of the many applications of this project will be [ToolipsORM](https://github.com/ChifiSource/ToolipsORM.jl), providing algebraic relational objects for remote data-bases. Likewise, this will also be forged to work with requests, and I am also considering making some seeking readers for this same application.
 - **mutated copies**. In Science, there are an array of situations where we need to apply operations over a large amount of data -- typically, we will create a copy of an data and then we will mutate a now second version of our data in memory. Algia seeks to mitigate the memory usage of this by allowing us to instead create an algebraic representation of those changes, storing the `Vector` as a reference to itself inside of the `Function` which generates our initial array.
 - **manual compute**. In addition to the other things that `Algia` offers; one aspect of lazy calculation is simple yet still rings vital. We are able to choose when our machine engages in certain data processes.
