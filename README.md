@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://github.com/ChifiSource/image_dump/blob/main/algebraframes/alframe.png" width="200"></img>
-  <h6>soon to come: algia</h6>
+  <h6>algebraframes !</h6>
 </div>
 
 `AlgebraFrames` provides several convenient *out-of-memory* data-structures for Julia. There are a few specific goals that this package hopes to achieve on the front of **out-of-memory** data.
