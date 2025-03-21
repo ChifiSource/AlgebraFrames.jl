@@ -69,31 +69,29 @@ algebra_initializer(T::Type{Float64}) = x -> 0.0
 algebra_initializer(T::Type{String}) = x -> "null"
 
 # creation
-function (:)(T::Type{<:Any}, un::Int64, f::Function = algebra_initializer(T))
-    Algebra{T}(f, un, 1)::Algebra{T, 1}
-end
+algebra(T::Type{<:Any}, n::Int64, f::Function = algebra_initializer(T)) = Algebra{T}(f, n, 1)::Algebra{T, 1}
 
-function (:)(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
+function algebra(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
     Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
 
-function (:)(alg::AbstractAlgebra, f::Function)
+function algebra(f::Function, T::Type{<:Any} = methods(f)[1].sig.parameters[1], dim::Tuple = (1, 1))
+    Algebra{T}(f, dim)::Algebra{T, dim[2]}
+end
+
+function algebra(f::Function, T::Type{<:Any} = methods(f)[1].sig.parameters[1], dim::Int64 = 1)
+    Algebra{T}(f, dim, 1)::Algebra{T, 1}
+end
+
+algebra(vec::Vector{<:Any}) = Algebra(vec)
+
+function algebra!(alg::AbstractAlgebra, f::Function)
     push!(alg.pipe, f)
 end
 
-(:)(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
+algebra!(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
 
 # generation
-
-function generate(alg::Algebra{<:Any, <:Any}, row::UnitRange{Int64})
-    gen = first(alg.pipe)
-    params = methods(gen)[1].sig.parameters
-    if length(params) > 1 && params[2] == Int64
-        [gen(e) for e in row]
-    else
-        gen()[row]
-    end
-end
 
 function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
     generated = generate(alg, row)
@@ -115,7 +113,7 @@ end
 function generate(alg::Algebra{<:Any, <:Any}, dim::Int64)
     gen = first(alg.pipe)
     params = methods(gen)[1].sig.parameters
-    if length(params) > 1 && params[2] == Int64
+    if length(params) > 1
         gen(dim)
     else
         gen()[dim]
@@ -123,7 +121,7 @@ function generate(alg::Algebra{<:Any, <:Any}, dim::Int64)
 end
 
 
-function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
+function getindex(alg::AlgebraVector{<:Any}, dim::Int64)
     generated = generate(alg, dim)
     N = typeof(alg).parameters[2]
     [begin
@@ -136,7 +134,7 @@ function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
     generated::Any
 end
 
-function generate(alg::Algebra{<:Any, <:Any}, row::UnitRange, col::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
+function generate(alg::Algebra{<:Any, <:Any}, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
     # TODO
     gen = first(alg.pipe)
     params = methods(gen)[1].sig.parameters
@@ -208,23 +206,14 @@ function generate(alg::Algebra{<:Any, <:Any})
     end
 end
 
-function vect(alg::Algebra{<:Any, 1})
-    generated = generate(alg)
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
-end
-
 function vect(alg::AbstractAlgebra)
     generated = generate(alg)
     [begin
         try
-            func(generated)
+            ret = func(generated)
+            if ~(isnothing(ret))
+                generated = ret
+            end
         catch e
             throw("Algebra error todo here")
         end

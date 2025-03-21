@@ -22,8 +22,12 @@ println(sizeof(my_data)) # 16 bytes
 # (reduction of 118 octets!)
 
 # custom initializer:
-my_data = Int64:e::Int64 -> 5
-# 'e' is the enumeration.
+my_data = Int64:5:e::Int64 -> 5
+# 'e' is the enumeration. if we do not want provide argument, we can generate 
+# the entire thing at once:
+my_data = Int16:5:() -> begin
+
+end
 
 # modifying data:
 my_data:vector::Vector{Int64} -> begin
@@ -54,18 +58,27 @@ end
 # AlgebraFrame:
 mydata = 15:["name", "number", "directory", "group"]
 
-# consider all of these values were stored in files by the employee's names:
-dirpath = "texts/employeeinfo"
-n_files = length(readdir(dirpath))
+# file reader example:
 
-mydata = 15:["name", "number", "directory", "group"]:e -> begin
-    # we assemble each row ourselves, `x` is the row
-end
+frame = ["name", "age", "birth month", "state"]:() -> begin
+           names, age, bm, st = [], [], [], []
+           open("samplefile.txt", "r") do o::IOStream
+               while true
+                   if eof(o)
+                       break
+                   end
+                   line = readline(o)
+                   splits = split(line, "|")
+                   [push!(g, splits[e]) for (e, g) in enumerate([names, age, bm, st])]
+               end
+           end
+           hcat(names, age, bm, st)
+       end
 ```
 """
 module AlgebraFrames
 
-import Base: (:), getindex, setindex!, vect, Vector, show, length, size, pairs, reshape
+import Base: (:), getindex, setindex!, vect, Vector, show, length, size, pairs, reshape, eachcol, eachrow, filter!, filter
 
 include("algebra.jl")
 include("frames.jl")
