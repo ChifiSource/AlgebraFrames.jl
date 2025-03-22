@@ -75,7 +75,7 @@ function algebra(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T
     Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
 
-function algebra(f::Function, T::Type{<:Any} = methods(f)[1].sig.parameters[1], dim::Tuple = (1, 1))
+function algebra(f::Function, T::Type{<:Any}, dim::Tuple)
     Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
 
@@ -85,11 +85,9 @@ end
 
 algebra(vec::Vector{<:Any}) = Algebra(vec)
 
-function algebra!(alg::AbstractAlgebra, f::Function)
-    push!(alg.pipe, f)
-end
-
 algebra!(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
+
+set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
 
 # generation
 
@@ -215,6 +213,7 @@ function vect(alg::AbstractAlgebra)
                 generated = ret
             end
         catch e
+            throw(e)
             throw("Algebra error todo here")
         end
     end for func in alg.pipe[2:length(alg.pipe)]]

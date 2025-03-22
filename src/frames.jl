@@ -22,6 +22,22 @@ end
 
 length(af::AlgebraFrame{<:Any}) = length(af.algebra[1])
 
+algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
+
+algebra!(f::Function, af::AlgebraFrame) = begin
+    data = hcat((generate(alg) for alg in af.algebra) ...)
+    f(data)
+    [begin
+        af.algebra[e].pipe = [x -> data[x, e]]
+    end for (e, alg) in enumerate(eachcol(data))]
+    nothing::Nothing
+end
+
+algebra!(f::Function, af::AlgebraFrame, name::String) = begin
+    pos = findfirst(n -> n == name, af.names)
+    algebra!(f, af.algebra[pos])
+    nothing
+end
 
 # generation
 function getindex(af::AlgebraFrame{<:Any}, column::String, r::UnitRange{Int64} = 1:af.n)
