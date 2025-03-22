@@ -4,7 +4,10 @@
 - Algebra generation (vect, getindex, eachrow ...)
 - FrameRow (row indexing/filtering)
 ==#
-mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebra
+
+abstract type AbstractAlgebraFrame <: AbstractAlgebra end
+
+mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
     n::Int64
     names::Vector{String}
     T::Vector{Type}
@@ -20,7 +23,9 @@ mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebra
     end
 end
 
-length(af::AlgebraFrame{<:Any}) = length(af.algebra[1])
+names(af::AbstractAlgebraFrame) = names
+
+length(af::AbstractAlgebraFrame) = n
 
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
@@ -40,26 +45,40 @@ algebra!(f::Function, af::AlgebraFrame, name::String) = begin
 end
 
 # generation
-function getindex(af::AlgebraFrame{<:Any}, column::String, r::UnitRange{Int64} = 1:af.n)
+
+generate(af::AbstractAlgebraFrame) = hcat((generate(alg) for alg in af.algebra) ...)
+
+function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.n)
     colaxis = findfirst(x -> x == column, af.names)
-    af.algebra[colaxis][r, colaxis:colaxis]
+    af.algebra[colaxis][r]
 end
 
-getindex(af::AlgebraFrame{<:Any}, args ...) = getindex(af.algebra, args ...)
+vect(af::AbstractAlgebraFrame) = vect(af.algebra)
 
-vect(af::AlgebraFrame{<:Any}) = vect(af.algebra)
-
-function show(io::IO, algebra::AlgebraFrame{<:Any})
-    println(io, "frame")
+function show(io::IO, algebra::AbstractAlgebraFrame)
+    println(io, "frame $(algebra.n)x$(length(algebra.names))")
 end
 
+# Frame API
+function drop!(af::AlgebraFrame, row_n::Int64)
+
+end
+
+function drop!(af::AlgebraFrame, col::Int64, rows::UnitRange{Int64})
+
+end
+
+function drop!(af::AlgebraFrame, col::String, rows::UnitRange{Int64} = 1:af.n)
+
+end
 # rows
 mutable struct FrameRow
     names::Vector{String}
     values::Vector{<:Any}
 end
 
-function filter!(f::Function, af::AlgebraFrame{<:Any})
+
+function filter!(f::Function, af::AbstractAlgebraFrame)
     af:vec -> begin
 
     end
@@ -68,7 +87,7 @@ end
 eachrow(af::AlgebraFrame) = eachrow()
 
 
-function pairs(af::AlgebraFrame{<:Any})
+function pairs(af::AbstractAlgebraFrame)
     cols = eachcol(af.algebra)
     names = af.names
     [begin 
