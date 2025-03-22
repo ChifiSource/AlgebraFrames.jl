@@ -91,23 +91,7 @@ set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
 
 # generation
 
-function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
-    generated = generate(alg, row)
-    N = typeof(alg).parameters[2]
-    [begin
-        generated = hcat(generated, [gen(alg, row) for e in lastlen + 1:(lastlen + len)])
-        lastlen += len
-    end for column in 2:N]
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
-end
-
+# vector
 function generate(alg::Algebra{<:Any, <:Any}, dim::Int64)
     gen = first(alg.pipe)
     params = methods(gen)[1].sig.parameters
@@ -118,6 +102,9 @@ function generate(alg::Algebra{<:Any, <:Any}, dim::Int64)
     end
 end
 
+function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
+    [generate(alg, dim) for dim in row]
+end
 
 function getindex(alg::AlgebraVector{<:Any}, dim::Int64)
     generated = generate(alg, dim)

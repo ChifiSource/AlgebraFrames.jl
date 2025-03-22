@@ -50,6 +50,7 @@ generate(af::AbstractAlgebraFrame) = hcat((generate(alg) for alg in af.algebra) 
 
 function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.n)
     colaxis = findfirst(x -> x == column, af.names)
+    @info r
     af.algebra[colaxis][r]
 end
 
