@@ -16,7 +16,7 @@ abstract type AbstractAlgebra end
 
 length(a::AbstractAlgebra) = a.length::Int64
 
-shape(a::AbstractAlgebra) = (a.length)::Tuple{Int64}
+shape(a::AbstractAlgebra) = (a.length, typeof(a).parameters[2])::Tuple{Int64, Int64}
 
 mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     pipe::Vector{Function}
@@ -24,7 +24,10 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     Algebra{T, N}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where {T <: Any, N <: Any} = begin
         funcs::Vector{Function} = Vector{Function}([f])
         new{T, N}(funcs, length)::AbstractAlgebra
-    end 
+    end
+    function Algebra{T}(algebra::Algebra{<:Any, <:Any}) where T <: Any
+        new{T, typeof(algebra).parameters[2]}(algebra.pipe, algebra.length)
+    end
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
         Algebra{T, width}(f, length)::AbstractAlgebra
     end
@@ -43,7 +46,7 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     end
 end
 
-const AlgebraVector{T} = Algia.Algebra{T,1}
+const AlgebraVector{T} = Algebra{T,1}
 
 function shape(algebra::Algebra{<:Any, <:Any})
     (algebra.length, typeof(algebra).parameters[2])
@@ -59,111 +62,52 @@ function reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
 
 end
 
+algebra_initializer(T::Type{<:Integer}) = x -> T(0)
 algebra_initializer(T::Type{Int64}) = x -> 0
+algebra_initializer(T::Type{<:AbstractFloat}) = x -> T(0.0)
 algebra_initializer(T::Type{Float64}) = x -> 0.0
 algebra_initializer(T::Type{String}) = x -> "null"
 
-
-
 # creation
-function (:)(T::Type{<:Any}, un::Int64, f::Function = algebra_initializer(T))
-    Algebra{T}(f, un, 1)::Algebra{T, 1}
-end
+algebra(T::Type{<:Any}, n::Int64, f::Function = algebra_initializer(T)) = Algebra{T}(f, n, 1)::Algebra{T, 1}
 
-function (:)(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
+function algebra(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
     Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
 
-
-
-function (:)(alg::AbstractAlgebra, f::Function)
-    push!(alg.pipe, f)
+function algebra(f::Function, T::Type{<:Any}, dim::Tuple)
+    Algebra{T}(f, dim)::Algebra{T, dim[2]}
 end
 
-# algebraic indexing
-function (:)(alg::AbstractAlgebra, dim::Tuple)
-    typ = typeof(alg)
-    T = typ.parameters[1]
-    seconddim = typ.parameters[2]
-    if length(dim) == 2
-        seconddim = dim[2]
-    end
-    gen::AbstractArray = alg[dim[1], seconddim]
-    Algebra{T}(size(gen)) do e
-        gen[e]
-    end
+function algebra(f::Function, T::Type{<:Any} = methods(f)[1].sig.parameters[1], dim::Int64 = 1)
+    Algebra{T}(f, dim, 1)::Algebra{T, 1}
 end
 
-function (:)(alg::AbstractAlgebra, dim::Int64, col::Int64 = 1)
-    T = typeof(alg).parameters[1]
-    gen::AbstractArray = alg[dim, col]
-    Algebra{T}(1) do e
-        gen[e]
-    end
-end
+algebra(vec::Vector{<:Any}) = Algebra(vec)
 
-function (:)(alg::AlgebraVector{<:Any}, dim::UnitRange{Int64})
-    T = typeof(alg).parameters[1]
-    gen::AbstractArray = alg[dim]
-    Algebra{T}(length(gen)) do e
-        gen[e]
-    end
-end
+algebra!(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
+
+set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
 
 # generation
-function vect(alg::Algebra{<:Any, 1})
-    gen = first(alg.pipe)
-    generated = [gen(e) for e in 1:length(alg)]
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
-end
 
-function vect(alg::AbstractAlgebra)
+# vector
+function generate(alg::Algebra{<:Any, <:Any}, dim::Int64)
     gen = first(alg.pipe)
-    generated = [gen(e) for e in 1:length(alg)]
-    len = length(generated)
-    lastlen = length(generated)
-    N = typeof(alg).parameters[2]
-    [begin
-        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
-        lastlen += len
-    end for column in 2:N]
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
+    params = methods(gen)[1].sig.parameters
+    if length(params) > 1
+        gen(dim)
+    else
+        gen()[dim]
+    end
 end
 
 function getindex(alg::Algebra{<:Any, 1}, row::UnitRange{Int64})
-    gen = first(alg.pipe)
-    generated = [gen(e) for e in row]
-    N = typeof(alg).parameters[2]
-    [begin
-        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
-        lastlen += len
-    end for column in 2:N]
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
+    [generate(alg, dim) for dim in row]
 end
 
-function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
-    generated = first(alg.pipe)([dim])
+function getindex(alg::AlgebraVector{<:Any}, dim::Int64)
+    generated = generate(alg, dim)
     N = typeof(alg).parameters[2]
     [begin
         try
@@ -173,6 +117,27 @@ function getindex(alg::Algebra{<:Any, 1}, dim::Int64)
         end
     end for func in alg.pipe[2:length(alg.pipe)]]
     generated::Any
+end
+
+function generate(alg::Algebra{<:Any, <:Any}, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
+    # TODO
+    gen = first(alg.pipe)
+    params = methods(gen)[1].sig.parameters
+    if length(params) > 1
+        generated = [gen(dim) for dim in 1:length(alg)]
+        N = typeof(alg).parameters[2]
+        len = length(generated)
+        lastlen = length(generated)
+        if N > 1
+            [begin
+                generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+                lastlen += len
+            end for column in 2:N]
+        end
+        return(generated)
+    else
+        gen()
+    end
 end
 
 function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
@@ -195,17 +160,58 @@ function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{In
 end
 
 function getindex(alg::AbstractAlgebra, dim::Int64, col::Int64)
-    println("called single multidim")
+    if col == 1
+        alg[dim]
+    else
+        throw("Algebra Dimension error.")
+    end
 end
 
 getindex(alg::AbstractAlgebra, dim::Int64, col::UnitRange{Int64}) = getindex(alg, dim:dim, col)
 
 getindex(alg::AbstractAlgebra, dim::UnitRange{Int64}, col::Int64) = getindex(alg, dim, col:col)
 
-function eachrow(alg::AbstractAlgebra)
+function generate(alg::Algebra{<:Any, <:Any})
+    gen = first(alg.pipe)
+    params = methods(gen)[1].sig.parameters
+    if length(params) > 1
+        generated = [gen(dim) for dim in 1:length(alg)]
+        N = typeof(alg).parameters[2]
+        len = length(generated)
+        lastlen = length(generated)
+        if N > 1
+            [begin
+                generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
+                lastlen += len
+            end for column in 2:N]
+        end
+        return(generated)
+    else
+        gen()
+    end
+end
 
+function vect(alg::AbstractAlgebra)
+    generated = generate(alg)
+    [begin
+        try
+            ret = func(generated)
+            if ~(isnothing(ret))
+                generated = ret
+            end
+        catch e
+            throw(e)
+            throw("Algebra error todo here")
+        end
+    end for func in alg.pipe[2:length(alg.pipe)]]
+    generated::AbstractArray
+end
+
+
+function eachrow(alg::AbstractAlgebra)
+    eachrow([alg])
 end
 
 function eachcol(alg::AbstractAlgebra)
-
+    eachcol([alg])
 end
