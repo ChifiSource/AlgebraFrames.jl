@@ -8,7 +8,7 @@
 abstract type AbstractAlgebraFrame <: AbstractAlgebra end
 
 mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
-    n::Int64
+    length::Int64
     names::Vector{String}
     T::Vector{Type}
     algebra::Vector{Algebra{<:Any, 1}}
@@ -48,36 +48,42 @@ end
 
 generate(af::AbstractAlgebraFrame) = hcat((generate(alg) for alg in af.algebra) ...)
 
-function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.n)
+function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.length)
     colaxis = findfirst(x -> x == column, af.names)
-    @info r
     af.algebra[colaxis][r]
 end
 
 vect(af::AbstractAlgebraFrame) = vect(af.algebra)
 
 function show(io::IO, algebra::AbstractAlgebraFrame)
-    println(io, "frame $(algebra.n)x$(length(algebra.names))")
+    println(io, "frame $(algebra.length)x$(length(algebra.names))")
 end
 
 # Frame API
 function drop!(af::AlgebraFrame, row_n::Int64)
+	for e in 1:length(af.algebra)
+        alg = af.algebra[e]
+        new_gen = AlgebraFrames.generate(alg)
+        deleteat!(new_gen, row_n)
+        af.algebra[e] = algebra(new_gen)
+	end
+	af.length -= 1
+	af::AlgebraFrame
+end
+
+function drop!(af::AlgebraFrame, col::String)
 
 end
 
-function drop!(af::AlgebraFrame, col::Int64, rows::UnitRange{Int64})
-
+merge!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; at::Any = length(af.names)) = begin
+    alg = algebra(col[2], af.length)
 end
 
-function drop!(af::AlgebraFrame, col::String, rows::UnitRange{Int64} = 1:af.n)
-
-end
 # rows
 mutable struct FrameRow
     names::Vector{String}
     values::Vector{<:Any}
 end
-
 
 function filter!(f::Function, af::AbstractAlgebraFrame)
     af:vec -> begin

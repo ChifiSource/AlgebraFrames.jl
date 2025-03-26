@@ -5,10 +5,11 @@
 - Algebra generation (vect, getindex, eachrow ...)
 ==#
 """
-### abstract type **AbstractAlgebra**
-
-### Consistencies
-- pipe
+```julia
+abstract type **AbstractAlgebra**
+```
+Consistencies
+- pipe::Vector{Function}
 - length::Int64
 ```
 """
@@ -88,6 +89,10 @@ algebra(vec::Vector{<:Any}) = Algebra(vec)
 algebra!(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
 
 set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
+
+deleteat!(alg::AbstractAlgebra, n::Int64) = algebra!(alg) do res
+    deleteat!(res)
+end
 
 # generation
 

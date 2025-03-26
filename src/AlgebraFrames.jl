@@ -83,5 +83,5 @@ import Base: (:), getindex, setindex!, vect, Vector, show, length, size, pairs, 
 include("algebra.jl")
 include("frames.jl")
 
-export AlgebraFrame, Algebra, AlgebraVector, algebra, algrebra!
+export AlgebraFrame, Algebra, AlgebraVector, algebra, algrebra!, generate
 end # module Algia
