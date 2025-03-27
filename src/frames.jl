@@ -26,7 +26,7 @@ end
 
 names(af::AbstractAlgebraFrame) = names
 
-length(af::AbstractAlgebraFrame) = n
+length(af::AbstractAlgebraFrame) = n + offsets
 
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
@@ -62,6 +62,23 @@ function show(io::IO, algebra::AbstractAlgebraFrame)
         "frame $(algebra.length + algebra.offsets)rows x $(length(algebra.names))columns | $colnames")
 end
 
+eachrow(af::AlgebraFrame) = begin
+
+end
+
+eachcol(af::AlgebraFrame) = begin
+
+end
+
+function pairs(af::AbstractAlgebraFrame)
+    names = af.names
+    [begin 
+        names[e] => generate(af.algebra[e])
+    end for e in 1:length(names)]
+end
+
+Dict(af::AbstractAlgebraFrame) = Dict(pairs(af) ...)
+
 # Frame API
 function deleteat!(af::AlgebraFrame, row_n::Int64)
 	for alg in af.algebra
@@ -87,7 +104,7 @@ function drop!(af::AlgebraFrame, col::String)
 end
 
 join!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
-    alg = algebra(f, col[2], af.length)
+    alg = algebra(f, col[2], af.length + af.offsets)
     if typeof(axis) <: AbstractString
         axis = findfirst(n::String -> n == axis, af.names)
     end
@@ -108,18 +125,37 @@ join!(af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names
 end
 
 join!(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
-
+    if typeof(axis) <: AbstractString
+        axis = findfirst(n::String -> n == axis, af.names)
+    end
+    if axis < length(af.names)
+        af.names = vcat(af.names[1:axis], af2.names, af.names[axis + 1:end])
+        af.algebra = vcat(af.algebra[1:axis], af2.algebra, af.algebra[axis + 1:end])
+        af.T = vcat(af.T[1:axis], af2.T, af.T[axis + 1:end])
+    else
+        push!(af.names, af2.names ...)
+        push!(af.algebra, af2.algebra ...)
+        push!(af.T, af2.T ...)
+    end
 end
 
 join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
 
 end
 
-merge(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length) = begin
+merge(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length + af.offsets) = begin
 
 end
 
-merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length) = begin
+merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length + af.offsets) = begin
+    for (e, name) in enumerate(af2.names)
+        if name in af.names
+            axis = findfirst(n -> n == name, af.names)
+
+        else
+
+        end
+    end
 
 end
 
@@ -135,14 +171,5 @@ mutable struct FrameRow
 end
 
 function filter!(f::Function, af::AbstractAlgebraFrame)
-    
-end
 
-eachrow(af::AlgebraFrame) = eachrow()
-
-function pairs(af::AbstractAlgebraFrame)
-    names = af.names
-    [begin 
-        names[e] => generate(af.algebra[e])
-    end for e in 1:length(names)]
 end

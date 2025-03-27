@@ -11,7 +11,12 @@ abstract type **AbstractAlgebra**
 Consistencies
 - pipe::Vector{Function}
 - length::Int64
+- `offsets`::Any
 ```
+`AbstractAlgebra` is an algebraic type that holds data outside of memory. These types can be generated using 
+`AlgebraFrames.generate` or `generate`, they also have a `length` and a pipeline of functions stored within them. 
+`offsets` is used to measure any changes in dimensionality that come from certain operations -- such as using 
+the `deleteat!` function directly on the `Algebra` itself.
 """
 abstract type AbstractAlgebra end
 
