@@ -15,20 +15,23 @@ Consistencies
 """
 abstract type AbstractAlgebra end
 
-length(a::AbstractAlgebra) = a.length::Int64
+length(a::AbstractAlgebra) = (a.length::Int64 + a.offsets[1])
 
-shape(a::AbstractAlgebra) = (a.length, typeof(a).parameters[2])::Tuple{Int64, Int64}
+shape(a::AbstractAlgebra) = (a.length + a.offsets[1], typeof(a).parameters[2] + a.offsets[2])::Tuple{Int64, Int64}
 
 mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     pipe::Vector{Function}
     length::Int64
+    offsets::Pair{Int64, Int64}
+    # base constructors
     Algebra{T, N}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where {T <: Any, N <: Any} = begin
         funcs::Vector{Function} = Vector{Function}([f])
-        new{T, N}(funcs, length)::AbstractAlgebra
+        new{T, N}(funcs, length, 0 => 0)::AbstractAlgebra
     end
     function Algebra{T}(algebra::Algebra{<:Any, <:Any}) where T <: Any
-        new{T, typeof(algebra).parameters[2]}(algebra.pipe, algebra.length)
+        new{T, typeof(algebra).parameters[2]}(algebra.pipe, algebra.length, 0 => 0)
     end
+    # accessible contstructors
     Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
         Algebra{T, width}(f, length)::AbstractAlgebra
     end
@@ -39,7 +42,8 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
             Algebra{T}(f, dim[1], dim[2])
         end
     end
-    function Algebra(vec::Vector{<:Any})
+    # vec copy constructor
+    function Algebra(vec::AbstractArray)
         T = typeof(vec).parameters[1]
         Algebra{T, 1}(length(vec)) do e
             vec[e]
@@ -69,6 +73,15 @@ algebra_initializer(T::Type{<:AbstractFloat}) = x -> T(0.0)
 algebra_initializer(T::Type{Float64}) = x -> 0.0
 algebra_initializer(T::Type{String}) = x -> "null"
 
+deleteat!(alg::AlgebraVector{<:Any}, n::Int64) = begin
+    algebra!(alg) do res
+        deleteat!(res, n)
+    end
+    alg.offsets[1] -= 1
+end
+
+set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
+
 # creation
 algebra(T::Type{<:Any}, n::Int64, f::Function = algebra_initializer(T)) = Algebra{T}(f, n, 1)::Algebra{T, 1}
 
@@ -88,11 +101,7 @@ algebra(vec::Vector{<:Any}) = Algebra(vec)
 
 algebra!(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
 
-set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
 
-deleteat!(alg::AbstractAlgebra, n::Int64) = algebra!(alg) do res
-    deleteat!(res)
-end
 
 # generation
 

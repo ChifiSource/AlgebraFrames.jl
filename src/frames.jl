@@ -12,6 +12,7 @@ mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
     names::Vector{String}
     T::Vector{Type}
     algebra::Vector{Algebra{<:Any, 1}}
+    offsets::Int64
     AlgebraFrame(n::Int64, pairs::Pair{<:Any, DataType} ...; T::Symbol = :a) = begin
         dct = Dict(pairs ...)
         names = [keys(dct) ...]
@@ -19,7 +20,7 @@ mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
         alg = Vector{Algebra{<:Any, 1}}([begin
                     algebra(types[e], n, algebra_initializer(types[e]))
                 end for (e, name) in enumerate(names)])
-        new{T}(n, names, types, alg)::AlgebraFrame
+        new{T}(n, names, types, alg, 0)::AlgebraFrame
     end
 end
 
@@ -60,23 +61,39 @@ function show(io::IO, algebra::AbstractAlgebraFrame)
 end
 
 # Frame API
-function drop!(af::AlgebraFrame, row_n::Int64)
-	for e in 1:length(af.algebra)
-        alg = af.algebra[e]
-        new_gen = AlgebraFrames.generate(alg)
-        deleteat!(new_gen, row_n)
-        af.algebra[e] = algebra(new_gen)
+function deleteat!(af::AlgebraFrame, row_n::Int64)
+	for alg in af.algebra
+        deleteat!(alg, row_n)
 	end
-	af.length -= 1
+	af.offsets -= 1
 	af::AlgebraFrame
 end
 
-function drop!(af::AlgebraFrame, col::String)
+function drop!(af::AlgebraFrame, axis::Int64)
+    deleteat!(af.names, axis)
+    deleteat!(af.T, axis)
+    deleteat!(af.algebra, axis)
+    nothing::Nothing
+end
 
+function drop!(af::AlgebraFrame, col::String)
+    axis = findfirst(x::String -> x == col, af.names)
+    if isnothing(axis)
+        throw("")
+    end
+    drop!(af, axis)
 end
 
 merge!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; at::Any = length(af.names)) = begin
     alg = algebra(col[2], af.length)
+end
+
+merge!(af::AlgebraFrame, af::AlgebraFrame; at::Any = length(af.names)) = begin
+
+end
+
+merge(af::AlgebraFrame, af::AlgebraFrame; at::Any = length(af.names)) = begin
+
 end
 
 # rows
@@ -92,7 +109,6 @@ function filter!(f::Function, af::AbstractAlgebraFrame)
 end
 
 eachrow(af::AlgebraFrame) = eachrow()
-
 
 function pairs(af::AbstractAlgebraFrame)
     cols = eachcol(af.algebra)
