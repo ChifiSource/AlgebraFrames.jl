@@ -86,36 +86,63 @@ function drop!(af::AlgebraFrame, col::String)
     drop!(af, axis)
 end
 
-merge!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; at::Any = length(af.names)) = begin
-    alg = algebra(col[2], af.length)
+join!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
+    alg = algebra(f, col[2], af.length)
+    if typeof(axis) <: AbstractString
+        axis = findfirst(n::String -> n == axis, af.names)
+    end
+    if axis < length(af.names)
+        af.names = vcat(af.names[1:axis], col[1], af.names[axis + 1:end])
+        af.algebra = vcat(af.algebra[1:axis], alg, af.algebra[axis + 1:end])
+        af.T = vcat(af.T[1:axis], col[2], af.T[axis + 1:end])
+    else
+        push!(af.names, col[1])
+        push!(af.algebra, alg)
+        push!(af.T, col[2])
+    end
+    af::AlgebraFrame
 end
 
-merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Any = length(af.names)) = begin
+join!(af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
+    join!(algebra_initializer(col[2]), af, col, axis = axis)
+end
+
+join!(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
 
 end
 
-merge(af::AlgebraFrame, af2::AlgebraFrame; at::Any = length(af.names)) = begin
+join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
 
 end
 
-# rows
+merge(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length) = begin
+
+end
+
+merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length) = begin
+
+end
+
+set_generator!(f::Function, af::AbstractAlgebraFrame, axis::Any = 1) = begin
+    set_generator!(f, af.algebra[axis])
+end
+
+# filtering
+
 mutable struct FrameRow
     names::Vector{String}
     values::Vector{<:Any}
 end
 
 function filter!(f::Function, af::AbstractAlgebraFrame)
-    af:vec -> begin
-
-    end
+    
 end
 
 eachrow(af::AlgebraFrame) = eachrow()
 
 function pairs(af::AbstractAlgebraFrame)
-    cols = eachcol(af.algebra)
     names = af.names
     [begin 
-        names[e] => cols[e]
-    end for e in 1:length(cols)]
+        names[e] => generate(af.algebra[e])
+    end for e in 1:length(names)]
 end
