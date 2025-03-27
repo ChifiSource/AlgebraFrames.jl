@@ -57,7 +57,9 @@ end
 vect(af::AbstractAlgebraFrame) = vect(af.algebra)
 
 function show(io::IO, algebra::AbstractAlgebraFrame)
-    println(io, "frame $(algebra.length)x$(length(algebra.names))")
+    colnames = join((n for n in algebra.names), " | ")
+    println(io, 
+        "frame $(algebra.length + algebra.offsets)rows x $(length(algebra.names))columns | $colnames")
 end
 
 # Frame API
@@ -73,7 +75,7 @@ function drop!(af::AlgebraFrame, axis::Int64)
     deleteat!(af.names, axis)
     deleteat!(af.T, axis)
     deleteat!(af.algebra, axis)
-    nothing::Nothing
+    af::AlgebraFrame
 end
 
 function drop!(af::AlgebraFrame, col::String)
@@ -88,11 +90,11 @@ merge!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; at::Any = len
     alg = algebra(col[2], af.length)
 end
 
-merge!(af::AlgebraFrame, af::AlgebraFrame; at::Any = length(af.names)) = begin
+merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Any = length(af.names)) = begin
 
 end
 
-merge(af::AlgebraFrame, af::AlgebraFrame; at::Any = length(af.names)) = begin
+merge(af::AlgebraFrame, af2::AlgebraFrame; at::Any = length(af.names)) = begin
 
 end
 

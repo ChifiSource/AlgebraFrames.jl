@@ -77,7 +77,7 @@ deleteat!(alg::AlgebraVector{<:Any}, n::Int64) = begin
     algebra!(alg) do res
         deleteat!(res, n)
     end
-    alg.offsets[1] -= 1
+    alg.offsets = alg.offsets[1] - 1 => alg.offsets[2]
 end
 
 set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
