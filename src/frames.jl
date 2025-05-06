@@ -45,16 +45,44 @@ algebra!(f::Function, af::AlgebraFrame, name::String) = begin
     nothing
 end
 
+abstract type AbstractFrame end
+
+mutable struct FrameRow <: AbstractFrame
+    names::Vector{String}
+    values::Vector{<:Any}
+end
+
+getindex(f::AbstractFrame, name::String) = begin
+
+end
+
+getindex(f::AbstractFrame, ind::Integer) = begin
+    f[values]
+end
+
+mutable struct Frame
+    names::Vector{String}
+    values::Vector{Vector{<:Any}}
+end
+
+getindex(f::Frame, ind::Integer, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
+    f.values[ind][observations]
+end
+
+getindex(f::Frame, name::String, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
+    axis = findfirst(n::String -> n == name, f.names)
+    f.values[n]
+end
+
+
 # generation
 
-generate(af::AbstractAlgebraFrame) = hcat((generate(alg) for alg in af.algebra) ...)
+generate(af::AbstractAlgebraFrame) = Frame(af.names, [(generate(alg) for alg in af.algebra) ...])
 
 function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.length)
     colaxis = findfirst(x -> x == column, af.names)
     af.algebra[colaxis][r]
 end
-
-vect(af::AbstractAlgebraFrame) = vect(af.algebra)
 
 function show(io::IO, algebra::AbstractAlgebraFrame)
     colnames = join((n for n in algebra.names), " | ")
@@ -164,11 +192,6 @@ set_generator!(f::Function, af::AbstractAlgebraFrame, axis::Any = 1) = begin
 end
 
 # filtering
-
-mutable struct FrameRow
-    names::Vector{String}
-    values::Vector{<:Any}
-end
 
 function filter!(f::Function, af::AbstractAlgebraFrame)
 
