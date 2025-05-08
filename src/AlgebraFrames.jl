@@ -79,9 +79,9 @@ frame = ["name", "age", "birth month", "state"]:() -> begin
 module AlgebraFrames
 
 import Base: (:), getindex, setindex!, vect, Vector, show, length, size, pairs, reshape, eachcol, eachrow, filter!, filter
-
+import Base: deleteat!, merge!, merge, join, Dict
 include("algebra.jl")
 include("frames.jl")
 
-export AlgebraFrame, Algebra, AlgebraVector, algebra, algrebra!
+export AlgebraFrame, Algebra, AlgebraVector, algebra, algebra!, generate, drop!, join!, Frame, FrameRow
 end # module Algia
