@@ -49,20 +49,24 @@ abstract type AbstractFrame end
 
 mutable struct FrameRow <: AbstractFrame
     names::Vector{String}
-    values::Vector{<:Any}
+    values::Vector{Any}
+end
+
+abstract type AbstractDataFrame <: AbstractFrame end
+
+mutable struct Frame <: AbstractDataFrame
+    names::Vector{String}
+    types::Vector{Type}
+    values::Vector{Vector{<:Any}}
 end
 
 getindex(f::AbstractFrame, name::String) = begin
-
+    position = findfirst(n::String -> n == name, f.names)
+    f.values[position]
 end
 
 getindex(f::AbstractFrame, ind::Integer) = begin
-    f[values]
-end
-
-mutable struct Frame
-    names::Vector{String}
-    values::Vector{Vector{<:Any}}
+    f.values[ind]
 end
 
 getindex(f::Frame, ind::Integer, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
@@ -90,12 +94,16 @@ function show(io::IO, algebra::AbstractAlgebraFrame)
         "frame $(algebra.length + algebra.offsets)rows x $(length(algebra.names))columns | $colnames")
 end
 
-eachrow(af::AlgebraFrame) = begin
+function show(io::IO, algebra::AbstractDataFrame)
 
 end
 
-eachcol(af::AlgebraFrame) = begin
+eachrow(af::AlgebraFrame) = begin
+    [[alg[e] for e in 1:af.length] for alg in af.values]
+end
 
+eachcol(af::AlgebraFrame) = begin
+    [(generate(alg) for alg in af.algebra) ...]
 end
 
 function pairs(af::AbstractAlgebraFrame)
@@ -107,7 +115,7 @@ end
 
 Dict(af::AbstractAlgebraFrame) = Dict(pairs(af) ...)
 
-# Frame API
+# `AlgebraFrame` API
 function deleteat!(af::AlgebraFrame, row_n::Int64)
 	for alg in af.algebra
         deleteat!(alg, row_n)
