@@ -31,11 +31,11 @@ length(af::AbstractAlgebraFrame) = n + offsets
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
 algebra!(f::Function, af::AlgebraFrame) = begin
-    data = hcat((generate(alg) for alg in af.algebra) ...)
+    data = generate(af)
     f(data)
     [begin
         af.algebra[e].pipe = [x -> data[x, e]]
-    end for (e, alg) in enumerate(eachcol(data))]
+    end for (e, alg) in enumerate(data.values)]
     nothing::Nothing
 end
 
@@ -69,6 +69,15 @@ getindex(f::AbstractFrame, ind::Integer) = begin
     f.values[ind]
 end
 
+getindex(f::AbstractFrame, ind::Integer, ind2::Integer) = begin
+    f.values[ind2][ind]
+end
+
+getindex(f::AbstractFrame, ind::Integer, col::String) = begin
+    ind2 = findfirst(n::String -> n == col, f.names)
+    f.values[ind2][ind]
+end
+
 getindex(f::Frame, ind::Integer, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
     f.values[ind][observations]
 end
@@ -78,10 +87,9 @@ getindex(f::Frame, name::String, observations::UnitRange{Int64} = 1:length(f.val
     f.values[n]
 end
 
-
 # generation
 
-generate(af::AbstractAlgebraFrame) = Frame(af.names, [(generate(alg) for alg in af.algebra) ...])
+generate(af::AbstractAlgebraFrame) = Frame(af.names, af.T, [(generate(alg) for alg in af.algebra) ...])
 
 function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.length)
     colaxis = findfirst(x -> x == column, af.names)
@@ -91,7 +99,7 @@ end
 function show(io::IO, algebra::AbstractAlgebraFrame)
     colnames = join((n for n in algebra.names), " | ")
     println(io, 
-        "frame $(algebra.length + algebra.offsets)rows x $(length(algebra.names))columns | $colnames")
+        "frame $(algebra.length + algebra.offsets) x $(length(algebra.names)) | $colnames")
 end
 
 function show(io::IO, algebra::AbstractDataFrame)
@@ -199,8 +207,22 @@ set_generator!(f::Function, af::AbstractAlgebraFrame, axis::Any = 1) = begin
     set_generator!(f, af.algebra[axis])
 end
 
+# `Frame` API:
+
+function join()
+
+end
+
+#===
+(special functions)
+===#
 # filtering
 
 function filter!(f::Function, af::AbstractAlgebraFrame)
 
 end
+
+function filter!(f::Function, af::AbstractDataFrame)
+
+end
+

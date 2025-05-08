@@ -83,5 +83,5 @@ import Base: deleteat!, merge!, merge, join, Dict
 include("algebra.jl")
 include("frames.jl")
 
-export AlgebraFrame, Algebra, AlgebraVector, algebra, algrebra!, generate, drop!, join!
+export AlgebraFrame, Algebra, AlgebraVector, algebra, algebra!, generate, drop!, join!, Frame, FrameRow
 end # module Algia
