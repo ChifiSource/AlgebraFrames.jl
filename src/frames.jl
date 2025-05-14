@@ -180,6 +180,16 @@ function deleteat!(af::AlgebraFrame, row_n::Int64)
 	af::AlgebraFrame
 end
 
+function deleteat!(af::AlgebraFrame, row_n::UnitRange{Int64})
+	for alg in af.algebra
+        for n in row_n
+            deleteat!(alg, n)
+        end
+	end
+	af.offsets -= 1
+	af::AlgebraFrame
+end
+
 function drop!(af::AlgebraFrame, axis::Int64)
     deleteat!(af.names, axis)
     deleteat!(af.T, axis)
@@ -269,15 +279,26 @@ end
 
 
 function drop!(f::AbstractFrame, col::Int64)
-
+    deleteat!(f.types, col)
+    deleteat!(f.names, col)
+    deleteat!(f.values, col)
+    f::AbstractFrame
 end
 
 function drop!(f::AbstractFrame, col::AbstractString)
-
+    axis = findfirst(x -> x == col, f.names)
+    drop!(f, axis)::AbstractFrame
 end
 
-function deleteat!(f::AbstractFrame, col::Int64, observations::UnitRange{Int64})
+function deleteat!(f::AbstractFrame, observations::UnitRange{Int64})
+    N::Int64 = length(f.values)
+    [[deleteat!(f.values[e], obs) for e in 1:N] for obs in observations]
+    f::AbstractFrame
+end
 
+function deleteat!(f::AbstractFrame, observation::Int64)
+    [deleteat!(f.values[e], observation) for e in 1:length(values)]
+    f::AbstractFrame
 end
 
 function eachrow(f::AbstractFrame)
