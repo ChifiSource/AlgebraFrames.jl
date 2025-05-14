@@ -109,6 +109,26 @@ function setindex!(f::AbstractFrame, colname::String, value::AbstractVector)
     setindex!(f, position, value)::AbstractFrame
 end
 
+
+function setindex!(f::AbstractFrame, position::Int64, row::Any ...)
+    row = FrameRow(f.names, [row ...])
+    f[position] = row
+end
+
+
+function setindex!(f::AbstractFrame, position::Int64, row::FrameRow)
+    [f.values[e][position] = row.values[e] for e in 1:length(f,values)]
+    f::AbstractFrame
+end
+
+function setindex!(f::AbstractFrame, axis::Any, position::Int64, value::Any)
+    if typeof(axis) <: AbstractString
+        axis = findfirst(n -> n == axis, f.names)
+    end
+    f.values[axis][position] = value
+    f::AbstractFrame
+end
+
 # generation
 
 generate(af::AbstractAlgebraFrame) = Frame(af.names, af.T, [(generate(alg) for alg in af.algebra) ...])
@@ -124,13 +144,19 @@ function show(io::IO, algebra::AbstractAlgebraFrame)
         "frame $(algebra.length + algebra.offsets) x $(length(algebra.names)) | $colnames")
 end
 
-function show(io::IO, algebra::AbstractDataFrame)
+function show(io::IO, frame::AbstractDataFrame)
 
 end
+
+function display(io::IO, frame::AbstractDataFrame)
+    
+end
+
 
 eachrow(af::AlgebraFrame) = begin
     [[alg[e] for e in 1:af.length] for alg in af.values]
 end
+
 
 eachcol(af::AlgebraFrame) = begin
     [(generate(alg) for alg in af.algebra) ...]
@@ -279,3 +305,11 @@ function filter!(f::Function, af::AbstractDataFrame)
 
 end
 
+# replace
+function replace()
+
+end
+
+function cast!()
+
+end
