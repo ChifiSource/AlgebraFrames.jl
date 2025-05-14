@@ -26,7 +26,7 @@ end
 
 names(af::AbstractAlgebraFrame) = names
 
-length(af::AbstractAlgebraFrame) = n + offsets
+length(af::AbstractAlgebraFrame) = af.length + offsets
 
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
@@ -117,7 +117,7 @@ end
 
 
 function setindex!(f::AbstractFrame, position::Int64, row::FrameRow)
-    [f.values[e][position] = row.values[e] for e in 1:length(f,values)]
+    [f.values[e][position] = row.values[e] for e in 1:length(f.values)]
     f::AbstractFrame
 end
 
@@ -243,7 +243,7 @@ merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length + af.offsets) 
     for (e, name) in enumerate(af2.names)
         if name in af.names
             axis = findfirst(n -> n == name, af.names)
-
+            af2.algebra
         else
 
         end
@@ -259,7 +259,7 @@ end
 
 function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::AbstractVector; axis::Any = length(f.names))
     if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, af.names)
+        axis = findfirst(n::String -> n == axis, f.names)
     end
     insert!(f.names, axis - 1, colname)
     insert!(f.types, axis - 1, T)
@@ -268,20 +268,30 @@ function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::Abstra
 end
 
 
-function drop!()
+function drop!(f::AbstractFrame, col::Int64)
 
 end
 
-function deleteat!()
+function drop!(f::AbstractFrame, col::AbstractString)
 
 end
 
-function eachrow()
+function deleteat!(f::AbstractFrame, col::Int64, observations::UnitRange{Int64})
 
 end
 
-function eachcol()
+function eachrow(f::AbstractFrame)
+    [begin
+        FrameRow(f.names, [f.values[n][x] for n in 1:length(f.values)]) 
+    end for x in 1:length(f.values[1])]::Vector{FrameRow}
+end
 
+function eachcol(f::AbstractFrame)
+    f.values::Vector{<:AbstractVector}
+end
+
+function pairs(f::AbstractFrame)
+    [f.names[e] => f.values[e] for e in 1:length(f.values)]
 end
 
 function merge()
@@ -291,6 +301,8 @@ end
 function merge!()
 
 end
+
+# frame row API:
 
 #===
 special functions (for both)
