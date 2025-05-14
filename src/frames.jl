@@ -87,6 +87,28 @@ getindex(f::Frame, name::String, observations::UnitRange{Int64} = 1:length(f.val
     f.values[n]
 end
 
+function setindex!(f::AbstractFrame, ind::Integer, value::AbstractVector)
+    n::Int64 = length(f.names)
+    if ind > n
+        throw("future error")
+    elseif length(value) != length(f.values[1])
+        throw("future error")
+    end
+    f.values[n] = value
+    f::AbstractFrame
+end
+
+function setindex!(f::AbstractFrame, colname::String, value::AbstractVector)
+    position = findfirst(x -> x == colname, names)
+    if isnothing(position)
+        # (adds a new column)
+        T::Type = typeof(value).parameters[1]
+        join!(f, colname, T, value)
+        return(f)::AbstractFrame
+    end
+    setindex!(f, position, value)::AbstractFrame
+end
+
 # generation
 
 generate(af::AbstractAlgebraFrame) = Frame(af.names, af.T, [(generate(alg) for alg in af.algebra) ...])
@@ -123,7 +145,7 @@ end
 
 Dict(af::AbstractAlgebraFrame) = Dict(pairs(af) ...)
 
-# `AlgebraFrame` API
+# basic `AlgebraFrame` API
 function deleteat!(af::AlgebraFrame, row_n::Int64)
 	for alg in af.algebra
         deleteat!(alg, row_n)
@@ -207,14 +229,45 @@ set_generator!(f::Function, af::AbstractAlgebraFrame, axis::Any = 1) = begin
     set_generator!(f, af.algebra[axis])
 end
 
-# `Frame` API:
+# basic `Frame` API:
 
-function join()
+function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::AbstractVector; axis::Any = length(f.names))
+    if typeof(axis) <: AbstractString
+        axis = findfirst(n::String -> n == axis, af.names)
+    end
+    insert!(f.names, axis - 1, colname)
+    insert!(f.types, axis - 1, T)
+    insert!(f.values, axis - 1, value)
+    f::AbstractFrame
+end
+
+
+function drop!()
+
+end
+
+function deleteat!()
+
+end
+
+function eachrow()
+
+end
+
+function eachcol()
+
+end
+
+function merge()
+
+end
+
+function merge!()
 
 end
 
 #===
-(special functions)
+special functions (for both)
 ===#
 # filtering
 
