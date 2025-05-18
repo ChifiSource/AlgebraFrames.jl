@@ -234,3 +234,11 @@ end
 function eachcol(alg::AbstractAlgebra)
     eachcol([alg])
 end
+
+function vcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
+    Algebra()
+end
+
+function hcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
+    Algebra()
+end

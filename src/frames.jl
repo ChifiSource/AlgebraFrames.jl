@@ -331,18 +331,50 @@ special functions (for both)
 # filtering
 
 function filter!(f::Function, af::AbstractAlgebraFrame)
-
+    N::Int64 = length(af.names)
+    for x in 1:af.length
+        row = FrameRow(af.names, [af[e, x] for e in 1:N])
+        remove = f(row)
+        if remove
+            deleteat!(af, x)
+        end
+    end
+    af::AbstractAlgebraFrame
 end
 
 function filter!(f::Function, af::AbstractDataFrame)
-
+    N::Int64 = length(af.names)
+    for x in 1:length(af.values[1])
+        row = FrameRow(af.names, [af.values[e][x] for e in 1:N])
+        remove = f(row)
+        if remove
+            deleteat!(af, x)
+        end
+    end
+    af::AbstractDataFrame
 end
 
 # replace
-function replace()
+function replace!(af::AbstractAlgebraFrame, value::Any, with::Any)
 
 end
 
-function cast!()
+function replace!(af::AbstractAlgebraFrame, col::Int64, value::Any, with::Any)
+
+end
+
+function replace!(af::AbstractAlgebraFrame, col::String, value::Any, with::Any)
+
+end
+
+function replace!(af::AbstractAlgebraFrame, col::String, value::Any, with::Any)
+
+end
+
+function cast!(af::AbstractAlgebraFrame, col::Int64, to::Type)
+
+end
+
+function cast!(af::AbstractAlgebraFrame, col::String, to::Type)
 
 end
