@@ -7,42 +7,64 @@
 
 abstract type AbstractAlgebraFrame <: AbstractAlgebra end
 
+abstract type AbstractTransformation end
+
+mutable struct Transform <: AbstractTransformation
+    col::Vector{Int16}
+    f::Function
+end
+
 mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
     length::Int64
     names::Vector{String}
     T::Vector{Type}
-    algebra::Vector{Algebra{<:Any, 1}}
+    gen::Vector{Function}
+    transformations::Vector{Transform}
     offsets::Int64
     AlgebraFrame(n::Int64, pairs::Pair{<:Any, DataType} ...; T::Symbol = :a) = begin
         dct = Dict(pairs ...)
         names = [keys(dct) ...]
         types = [values(dct) ...]
-        alg = Vector{Algebra{<:Any, 1}}([begin
-                    algebra(types[e], n, algebra_initializer(types[e]))
-                end for (e, name) in enumerate(names)])
-        new{T}(n, names, types, alg, 0)::AlgebraFrame
+        gens = [algebra_initializer(types[e]) for e in 1:length(names)]
+        new{T}(n, names, types, gens, Vector{Transform}(), 0)::AlgebraFrame
     end
 end
 
-names(af::AbstractAlgebraFrame) = names
+generate(af::AbstractAlgebraFrame) = begin 
+    values = [begin
+        generate(Algebra{af.T[col]}(af.gen[col], af.length))
+    end for col in 1:length(af.names)]
+    newf = Frame(af.names, af.T, values)
+    for transform in af.transformations
+        current_frame = newf[transform.col]
+        transform.f(current_frame)
+    end
+    newf::Frame
+end
+
+names(af::AbstractAlgebraFrame) = af.names
 
 length(af::AbstractAlgebraFrame) = af.length + offsets
 
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
 algebra!(f::Function, af::AlgebraFrame) = begin
-    data = generate(af)
-    f(data)
-    [begin
-        af.algebra[e].pipe = [x -> data[x, e]]
-    end for (e, alg) in enumerate(data.values)]
-    nothing::Nothing
+    push!(af.transformations, 
+        Transform([e for e in 1:length(af.names)], f))
 end
 
-algebra!(f::Function, af::AlgebraFrame, name::String) = begin
-    pos = findfirst(n -> n == name, af.names)
-    algebra!(f, af.algebra[pos])
+algebra!(f::Function, af::AlgebraFrame, name::Int64 ...) = begin
+    push!(transformations, Transform([name ...], f))
+end
+
+algebra!(f::Function, af::AlgebraFrame, names::String ...) = begin
+    positions = [findfirst(n -> n == name, af.names) for name in names]
+    algebra!(f, af, positions ...)
     nothing
+end
+
+algebra!(f::Function, af::AlgebraFrame, names::UnitRange{Int64}) = begin
+    algebra!(f, af, names ...)
 end
 
 abstract type AbstractFrame end
@@ -60,13 +82,12 @@ mutable struct Frame <: AbstractDataFrame
     values::Vector{Vector{<:Any}}
 end
 
-getindex(f::AbstractFrame, name::String) = begin
-    position = findfirst(n::String -> n == name, f.names)
-    f.values[position]
+getindex(f::AbstractFrame, cols::UnitRange{<:Integer}) = begin
+    Frame([f.names[e] for e in cols], [f.types[e] for e in cols], [f.values for e in cols])
 end
 
-getindex(f::AbstractFrame, ind::Integer) = begin
-    f.values[ind]
+getindex(f::AbstractFrame, cols::Vector{<:Integer}) = begin
+    Frame([f.names[e] for e in cols], [f.types[e] for e in cols], [f.values for e in cols])
 end
 
 getindex(f::AbstractFrame, ind::Integer, ind2::Integer) = begin
@@ -84,7 +105,7 @@ end
 
 getindex(f::Frame, name::String, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
     axis = findfirst(n::String -> n == name, f.names)
-    f.values[n]
+    f.values[axis]
 end
 
 function setindex!(f::AbstractFrame, ind::Integer, value::AbstractVector)
@@ -129,10 +150,6 @@ function setindex!(f::AbstractFrame, axis::Any, position::Int64, value::Any)
     f::AbstractFrame
 end
 
-# generation
-
-generate(af::AbstractAlgebraFrame) = Frame(af.names, af.T, [(generate(alg) for alg in af.algebra) ...])
-
 function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.length)
     colaxis = findfirst(x -> x == column, af.names)
     af.algebra[colaxis][r]
@@ -148,8 +165,11 @@ function show(io::IO, frame::AbstractDataFrame)
 
 end
 
-function display(io::IO, frame::AbstractDataFrame)
-    
+function display(io::IO, mime::MIME{Symbol("text/html")}, frame::AbstractDataFrame)
+    colframe = 
+    for col in frame
+
+    end
 end
 
 
