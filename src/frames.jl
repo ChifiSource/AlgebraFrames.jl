@@ -76,9 +76,34 @@ function set_generator!(f::Function, af::AlgebraFrame, col::String)
     set_generator!(f, af, axis)
 end
 
-function getindex(af::AbstractAlgebraFrame, column::Integer, r::UnitRange{Int64} = 1:af.length)
+function getindex(af::AbstractAlgebraFrame, column::Int64, r::UnitRange{Int64} = 1:af.length)
     init = generate(Algebra{af.T[column]}(af.gen[column], af.length))
+    for transform in af.transformations
+        if column in transform.col
+            n = length(transform.col)
+            position = findfirst(i -> i == column, transform.col)
+            filtered = if position != n
+                vcat(transform.col[1:position - 1], transform.col[position:end])
+            elseif position == 1
+                transform.col[position:end]
+            else
+                transform.col[position:position]
+            end
+            curr_names = [af.names[e] for e in transform.col]
+            curr_types = [af.T[e] for e in transform.col]
+            @warn typeof(init)
+            @warn init
+            curr_vals = Vector{AbstractVector}([Vector{af.T[column_n]}([af.gen[column_n](e) for e in 1:af.length]) for column_n in filtered])
+            for column_n in filtered
 
+            end
+            @info typeof(curr_vals)
+            insert!(curr_vals, position, init)
+            n_frame = Frame(curr_names, curr_types, curr_vals)
+            transform.f(n_frame)
+        end
+    end
+    init[r]
 end
 
 function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.length)
