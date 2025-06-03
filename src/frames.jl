@@ -100,9 +100,6 @@ function getindex(af::AbstractAlgebraFrame, column::Int64, r::UnitRange{Int64} =
             transform.f(n_frame)
         end
     end
-    if maximum(r) == af.length && length(init) != af.length
-        r = minimum(r):length(init)
-    end
     init[r]
 end
 
@@ -125,9 +122,10 @@ end
 
 function pairs(af::AbstractAlgebraFrame)
     names = af.names
+    generated = generate(af)
     [begin 
-        names[e] => generate(af.algebra[e])
-    end for e in 1:length(names)]
+        names[e] => generated.values[e]
+    end for e in 1:af.length]
 end
 
 Dict(af::AbstractAlgebraFrame) = Dict(pairs(af) ...)
@@ -171,6 +169,10 @@ function eachrow(f::AbstractDataFrame)
     [begin
         [f.values[col][e] for col in 1:n]
     end for e in 1:length(f.values[1])]
+end
+
+function pairs(f::AbstractDataFrame)
+    [f.names[e] => f.values[e] for e in length(f.names)]
 end
 
 function framerows(f::AbstractDataFrame)
@@ -269,15 +271,19 @@ function html_string(frame::Frame)
 end
 
 function deleteat!(af::AlgebraFrame, row_n::Int64)
-    remover = f::AbstractDataFrame -> deleteat!(f, row_n)
-	push!(af.transformations, Transform([Int16(e) for e in 1:length(af.names)], remover))
+    del = f -> begin
+        deleteat!(f, row_n)
+    end
+	push!(af.transformations, Transform([e for e in 1:length(af.names)], del))
 	af.offsets -= 1
 	af::AlgebraFrame
 end
 
 function deleteat!(af::AlgebraFrame, row_n::UnitRange{Int64})
-    remover = f::AbstractDataFrame -> [deleteat!(f, rownumber) for rownumber in row_n]
-	push!(af.transformations, Transform([Int16(e) for e in 1:length(af.names)], remover))
+    del = f -> begin
+        deleteat!(f, row_n ...)
+    end
+	push!(af.transformations, Transform([e for e in 1:length(af.names)], del))
 	af.offsets -= 1
 	af::AlgebraFrame
 end
@@ -285,7 +291,7 @@ end
 function drop!(af::AlgebraFrame, axis::Int64)
     deleteat!(af.names, axis)
     deleteat!(af.T, axis)
-    deleteat!(af.algebra, axis)
+    deleteat!(af.gen, axis)
     af::AlgebraFrame
 end
 
@@ -298,17 +304,16 @@ function drop!(af::AlgebraFrame, col::String)
 end
 
 join!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
-    alg = algebra(f, col[2], af.length + af.offsets)
     if typeof(axis) <: AbstractString
         axis = findfirst(n::String -> n == axis, af.names)
     end
     if axis < length(af.names)
         af.names = vcat(af.names[1:axis], col[1], af.names[axis + 1:end])
-        af.algebra = vcat(af.algebra[1:axis], alg, af.algebra[axis + 1:end])
+        af.gen = vcat(af.gen[1:axis], f, af.gen[axis + 1:end])
         af.T = vcat(af.T[1:axis], col[2], af.T[axis + 1:end])
     else
         push!(af.names, col[1])
-        push!(af.algebra, alg)
+        push!(af.gen, f)
         push!(af.T, col[2])
     end
     af::AlgebraFrame
@@ -324,11 +329,11 @@ join!(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
     end
     if axis < length(af.names)
         af.names = vcat(af.names[1:axis], af2.names, af.names[axis + 1:end])
-        af.algebra = vcat(af.algebra[1:axis], af2.algebra, af.algebra[axis + 1:end])
+        af.gen = vcat(af.gen[1:axis], af2.gen, af.gen[axis + 1:end])
         af.T = vcat(af.T[1:axis], af2.T, af.T[axis + 1:end])
     else
         push!(af.names, af2.names ...)
-        push!(af.algebra, af2.algebra ...)
+        push!(af.gen, af2.gen ...)
         push!(af.T, af2.T ...)
     end
 end
@@ -337,15 +342,14 @@ join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
 
 end
 
-merge(af::AlgebraFrame, af2::AlgebraFrame; axis::Int64 = af.length + af.offsets) = begin
+merge(af::AlgebraFrame, af2::AlgebraFrame; index::Int64 = af.length) = begin
 
 end
 
 merge!(af::AlgebraFrame, af2::AlgebraFrame; axis::Int64 = af.length + af.offsets) = begin
     for (e, name) in enumerate(af2.names)
         if name in af.names
-            axis = findfirst(n -> n == name, af.names)
-            af2.algebra
+
         else
 
         end
@@ -385,7 +389,7 @@ function deleteat!(f::AbstractFrame, observations::UnitRange{Int64})
 end
 
 function deleteat!(f::AbstractFrame, observation::Int64)
-    [deleteat!(f.values[e], observation) for e in 1:length(f.values)]
+    [deleteat!(f.values[e], observation) for e in 1:length(values)]
     f::AbstractFrame
 end
 
@@ -411,18 +415,32 @@ function merge!()
 
 end
 
+# frame row API:
+
+#===
+special functions (for both)
+===#
 # filtering
+
+function filter!(f::Function, af::AbstractAlgebraFrame)
+    N::Int64 = length(af.names)
+    for x in 1:af.length
+        row = FrameRow(af.names, [af[e, x] for e in 1:N])
+        remove = f(row)
+        if remove
+            deleteat!(af, x)
+        end
+    end
+    af::AbstractAlgebraFrame
+end
 
 function filter!(f::Function, af::AbstractDataFrame)
     N::Int64 = length(af.names)
-    removes = Vector{Bool}()
     for x in 1:length(af.values[1])
         row = FrameRow(af.names, [af.values[e][x] for e in 1:N])
-        push!(removes, ~(f(row)))
-    end
-    for rm in range(length(removes), 1, step = -1)
-        if removes[rm]
-            deleteat!(af, rm)
+        remove = f(row)
+        if remove
+            deleteat!(af, x)
         end
     end
     af::AbstractDataFrame
