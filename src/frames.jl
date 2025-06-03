@@ -481,18 +481,30 @@ function cast!(f::Function, af::AbstractAlgebraFrame, col::String, to::Type)
     cast!(f, af, f, to)
 end
 
-function cast!(a::AbstractArray, to::Type{<:Number})
-
+function cast(a::AbstractArray, to::Type{<:Number})
+    [begin
+        parse(to, val) 
+    end for val in a]
 end
 
-function cast!(a::AbstractArray, to::Type{<:AbstractString})
-
+function cast(a::AbstractArray, to::Type{<:Any})
+    [to(val) for val in a]
 end
+
+function cast(a::AbstractArray, to::Type{<:AbstractString})
+    [to(string(val)) for val in a]
+end
+
 
 function cast!(af::AbstractDataFrame, col::Int64, to::Type)
-
+    f.types[col] = to
+    f.values[col] = cast(f.values[col], to)
 end
 
 function cast!(af::AbstractDataFrame, col::String, to::Type)
-
+    f = findfirst(name -> name == col, af)
+    if isnothing(f)
+        throw("future error")
+    end
+    cast!(af, f, to)
 end
