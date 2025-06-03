@@ -79,7 +79,7 @@ frame = ["name", "age", "birth month", "state"]:() -> begin
 module AlgebraFrames
 
 import Base: (:), getindex, setindex!, vect, Vector, show, length, size, pairs, reshape, eachcol, eachrow, filter!, filter
-import Base: deleteat!, merge!, merge, join, Dict, hcat, replace, vcat
+import Base: deleteat!, merge!, merge, join, Dict, hcat, replace, vcat, Dict, Matrix, Array, Vector, display
 include("algebra.jl")
 include("frames.jl")
 

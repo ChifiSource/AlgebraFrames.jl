@@ -91,13 +91,10 @@ function getindex(af::AbstractAlgebraFrame, column::Int64, r::UnitRange{Int64} =
             end
             curr_names = [af.names[e] for e in transform.col]
             curr_types = [af.T[e] for e in transform.col]
-            @warn typeof(init)
-            @warn init
             curr_vals = Vector{AbstractVector}([Vector{af.T[column_n]}([af.gen[column_n](e) for e in 1:af.length]) for column_n in filtered])
             for column_n in filtered
 
             end
-            @info typeof(curr_vals)
             insert!(curr_vals, position, init)
             n_frame = Frame(curr_names, curr_types, curr_vals)
             transform.f(n_frame)
@@ -112,22 +109,11 @@ function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} 
 end
 
 eachrow(af::AlgebraFrame) = begin
-    [begin
-
-    end for e in 1:af.length]
+    eachrow(generate(af))
 end
 
 framerows(af::AlgebraFrame) = begin
-
-end
-
-function loop_rows(f::Function, af::AlgebraFrame)
-    row = FrameRow(af.names, [])
-    n = length(af.names)
-    for row_number in 1:af.length
-        row.values = [@view af.values[e][row_number] for e in 1:n]
-        f(row)
-    end
+    framerows(generate(af))
 end
 
 eachcol(af::AlgebraFrame) = begin
@@ -164,6 +150,33 @@ mutable struct Frame <: AbstractDataFrame
     values::Vector{Vector{<:Any}}
 end
 
+function loop_rows(f::Function, af::AbstractDataFrame)
+    row = FrameRow(af.names, [])
+    n = length(af.names)
+    for row_number in 1:af.length
+        row.values = [@view af.values[e][row_number] for e in 1:n]
+        f(row)
+    end
+end
+
+function eachcol(f::AbstractDataFrame)
+    f.values
+end
+
+function eachrow(f::AbstractDataFrame)
+    n = length(f.names)
+    [begin
+        [f.values[col][e] for col in 1:n]
+    end for e in 1:length(f.values[1])]
+end
+
+function framerows(f::AbstractDataFrame)
+    n = length(f.names)
+    [begin
+        FrameRow(f.names, [f.values[col][e] for col in 1:n])
+    end for e in 1:length(f.values[1])]
+end
+
 getindex(f::AbstractFrame, cols::UnitRange{<:Integer}) = begin
     Frame([f.names[e] for e in cols], [f.types[e] for e in cols], [f.values[e] for e in cols])
 end
@@ -181,11 +194,11 @@ getindex(f::AbstractFrame, ind::Integer, col::String) = begin
     f.values[ind2][ind]
 end
 
-getindex(f::Frame, ind::Integer, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
+getindex(f::AbstractFrame, ind::Integer, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
     f.values[ind][observations]
 end
 
-getindex(f::Frame, name::String, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
+getindex(f::AbstractFrame, name::String, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
     axis = findfirst(n::String -> n == name, f.names)
     f.values[axis]
 end
@@ -233,33 +246,23 @@ function setindex!(f::AbstractFrame, axis::Any, position::Int64, value::Any)
 end
 
 function show(io::IO, frame::AbstractDataFrame)
+    display(io, frame)
+end
 
+function display(io::IO, frame::AbstractDataFrame)
+    display(io, MIME"text/html"(), frame)
 end
 
 function display(io::IO, mime::MIME{Symbol("text/html")}, frame::AbstractDataFrame)
-    colframe = 
-    for col in frame
+    display(MIME"text/html"(), html_string(frame))
+end
 
+function html_string(frame::Frame)
+    header = "<table><tr>" * join("<th>$name</th>" for name in frame.names) * "</tr>"
+    for row in eachrow(frame)
+        header = header * "<tr>" * join("<td>$val</td>" for val in row) * "</tr>"
     end
-end
-
-# basic `AlgebraFrame` API
-function deleteat!(af::AlgebraFrame, row_n::Int64)
-	for alg in af.algebra
-        deleteat!(alg, row_n)
-	end
-	af.offsets -= 1
-	af::AlgebraFrame
-end
-
-function deleteat!(af::AlgebraFrame, row_n::UnitRange{Int64})
-	for alg in af.algebra
-        for n in row_n
-            deleteat!(alg, n)
-        end
-	end
-	af.offsets -= 1
-	af::AlgebraFrame
+    header * "</table>"
 end
 
 function drop!(af::AlgebraFrame, axis::Int64)
@@ -317,11 +320,11 @@ join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
 
 end
 
-merge(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length + af.offsets) = begin
+merge(af::AlgebraFrame, af2::AlgebraFrame; axis::Int64 = af.length + af.offsets) = begin
 
 end
 
-merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length + af.offsets) = begin
+merge!(af::AlgebraFrame, af2::AlgebraFrame; axis::Int64 = af.length + af.offsets) = begin
     for (e, name) in enumerate(af2.names)
         if name in af.names
             axis = findfirst(n -> n == name, af.names)
@@ -331,10 +334,6 @@ merge!(af::AlgebraFrame, af2::AlgebraFrame; at::Int64 = af.length + af.offsets) 
         end
     end
 
-end
-
-set_generator!(f::Function, af::AbstractAlgebraFrame, axis::Any = 1) = begin
-    set_generator!(f, af.algebra[axis])
 end
 
 # basic `Frame` API:
@@ -427,26 +426,27 @@ function filter!(f::Function, af::AbstractDataFrame)
 end
 
 # replace
-function replace!(af::AbstractAlgebraFrame, value::Any, with::Any)
+function replace!(af::AbstractDataFrame, value::Any, with::Any)
 
 end
 
-function replace!(af::AbstractAlgebraFrame, col::Int64, value::Any, with::Any)
+function replace!(af::AbstractDataFrame, col::Int64, value::Any, with::Any)
 
 end
 
-function replace!(af::AbstractAlgebraFrame, col::String, value::Any, with::Any)
-
-end
-
-function replace!(af::AbstractAlgebraFrame, col::String, value::Any, with::Any)
-
-end
 
 function cast!(af::AbstractAlgebraFrame, col::Int64, to::Type)
 
 end
 
 function cast!(af::AbstractAlgebraFrame, col::String, to::Type)
+
+end
+
+function cast!(af::AbstractDataFrame, col::Int64, to::Type)
+
+end
+
+function cast!(af::AbstractDataFrame, col::String, to::Type)
 
 end
