@@ -34,6 +34,11 @@ mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
     end
 end
 
+copy(af::AlgebraFrame) = begin
+    AlgebraFrame{typeof(af).parameters[1]}(af.length, af.names, af.T, af.gen, 
+    af.transformations, af.offsets)
+end
+
 generate(af::AbstractAlgebraFrame) = begin 
     values = [begin
         generate(Algebra{af.T[col]}(af.gen[col], af.length))
@@ -363,19 +368,17 @@ join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
         af.offsets + af2.offsets)::AlgebraFrame{:a}
 end
 
-merge(af::AlgebraFrame, af2::AlgebraFrame; index::Int64 = af.length) = begin
+merge(af::AlgebraFrame, af2::AlgebraFrame) = begin
+    cop = copy(af)
+    cop.length += af2.length
+    cop.offsets += af2.offsets
 
 end
 
-merge!(af::AlgebraFrame, af2::AlgebraFrame; axis::Int64 = af.length + af.offsets) = begin
-    for (e, name) in enumerate(af2.names)
-        if name in af.names
-
-        else
-
-        end
-    end
-
+merge!(af::AlgebraFrame, af2::AlgebraFrame) = begin
+    af.length = af.length + af2.length
+    af.offsets = af.offsets + af2.offsets
+    push!(af.transformations, af2.transformations ...)
 end
 
 
@@ -389,6 +392,13 @@ function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::Abstra
     f::AbstractFrame
 end
 
+function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
+    
+end
+
+function join(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
+
+end
 
 function drop!(f::AbstractFrame, col::Int64)
     deleteat!(f.types, col)
@@ -414,6 +424,12 @@ function deleteat!(f::AbstractFrame, observation::Int64)
 end
 
 function eachrow(f::AbstractFrame)
+    [begin
+        [f.values[n][x] for n in 1:length(f.values)]
+    end for x in 1:length(f.values[1])]
+end
+
+function framerows(f::AbstractDataFrame)
     [begin
         FrameRow(f.names, [f.values[n][x] for n in 1:length(f.values)]) 
     end for x in 1:length(f.values[1])]::Vector{FrameRow}
