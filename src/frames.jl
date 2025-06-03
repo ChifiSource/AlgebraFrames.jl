@@ -160,6 +160,8 @@ mutable struct Frame <: AbstractDataFrame
     values::Vector{Vector{<:Any}}
 end
 
+copy(f::Frame) = Frame(f.names, f.types, f.values)
+
 function loop_rows(f::Function, af::AbstractDataFrame)
     row = FrameRow(af.names, [])
     n = length(af.names)
@@ -348,6 +350,9 @@ join!(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
 end
 
 join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
+    if typeof(axis) <: AbstractString
+        axis = findfirst(n::String -> n == axis, f.names)
+    end
     if af.length != af2.length
         throw("future error here")
     end
@@ -372,7 +377,7 @@ merge(af::AlgebraFrame, af2::AlgebraFrame) = begin
     cop = copy(af)
     cop.length += af2.length
     cop.offsets += af2.offsets
-
+    push!(cop.transformations, af2.transformations)
 end
 
 merge!(af::AlgebraFrame, af2::AlgebraFrame) = begin
@@ -393,11 +398,30 @@ function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::Abstra
 end
 
 function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
-    
+    n = length(f.names)
+    if axis < n
+        f.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
+        f.values = vcat(f.values[1:axis], f2.values, f.values[axis + 1:end])
+        f.types = vcat(f.T[1:axis], f2.types, f.types[axis + 1:end])
+    else
+        push!(f.names, f2.names ...)
+        push!(f.values, f2.values ...)
+        push!(f.types, f2.types ...)
+    end
+    f::AbstractFrame
 end
 
 function join(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
-
+    newf = copy(f)
+    if axis < n
+        newf.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
+        newf.values = vcat(f.values[1:axis], f2.values, f.values[axis + 1:end])
+        newf.types = vcat(f.T[1:axis], f2.types, f.types[axis + 1:end])
+    else
+        push!(newf.names, f2.names ...)
+        push!(newf.values, f2.values ...)
+        push!(newf.types, f2.types ...)
+    end
 end
 
 function drop!(f::AbstractFrame, col::Int64)
