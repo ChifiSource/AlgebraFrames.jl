@@ -54,7 +54,7 @@ algebra!(f::Function, af::AlgebraFrame) = begin
 end
 
 algebra!(f::Function, af::AlgebraFrame, name::Int64 ...) = begin
-    push!(transformations, Transform([name ...], f))
+    push!(af.transformations, Transform([name ...], f))
 end
 
 algebra!(f::Function, af::AlgebraFrame, names::String ...) = begin
@@ -99,6 +99,9 @@ function getindex(af::AbstractAlgebraFrame, column::Int64, r::UnitRange{Int64} =
             n_frame = Frame(curr_names, curr_types, curr_vals)
             transform.f(n_frame)
         end
+    end
+    if maximum(r) == af.length && length(init) != af.length
+        r = minimum(r):length(init)
     end
     init[r]
 end
@@ -265,6 +268,20 @@ function html_string(frame::Frame)
     header * "</table>"
 end
 
+function deleteat!(af::AlgebraFrame, row_n::Int64)
+    remover = f::AbstractDataFrame -> deleteat!(f, row_n)
+	push!(af.transformations, Transform([Int16(e) for e in 1:length(af.names)], remover))
+	af.offsets -= 1
+	af::AlgebraFrame
+end
+
+function deleteat!(af::AlgebraFrame, row_n::UnitRange{Int64})
+    remover = f::AbstractDataFrame -> [deleteat!(f, rownumber) for rownumber in row_n]
+	push!(af.transformations, Transform([Int16(e) for e in 1:length(af.names)], remover))
+	af.offsets -= 1
+	af::AlgebraFrame
+end
+
 function drop!(af::AlgebraFrame, axis::Int64)
     deleteat!(af.names, axis)
     deleteat!(af.T, axis)
@@ -368,7 +385,7 @@ function deleteat!(f::AbstractFrame, observations::UnitRange{Int64})
 end
 
 function deleteat!(f::AbstractFrame, observation::Int64)
-    [deleteat!(f.values[e], observation) for e in 1:length(values)]
+    [deleteat!(f.values[e], observation) for e in 1:length(f.values)]
     f::AbstractFrame
 end
 
@@ -394,32 +411,18 @@ function merge!()
 
 end
 
-# frame row API:
-
-#===
-special functions (for both)
-===#
 # filtering
-
-function filter!(f::Function, af::AbstractAlgebraFrame)
-    N::Int64 = length(af.names)
-    for x in 1:af.length
-        row = FrameRow(af.names, [af[e, x] for e in 1:N])
-        remove = f(row)
-        if remove
-            deleteat!(af, x)
-        end
-    end
-    af::AbstractAlgebraFrame
-end
 
 function filter!(f::Function, af::AbstractDataFrame)
     N::Int64 = length(af.names)
+    removes = Vector{Bool}()
     for x in 1:length(af.values[1])
         row = FrameRow(af.names, [af.values[e][x] for e in 1:N])
-        remove = f(row)
-        if remove
-            deleteat!(af, x)
+        push!(removes, ~(f(row)))
+    end
+    for rm in range(length(removes), 1, step = -1)
+        if removes[rm]
+            deleteat!(af, rm)
         end
     end
     af::AbstractDataFrame
