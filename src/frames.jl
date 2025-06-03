@@ -21,6 +21,10 @@ mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
     gen::Vector{Function}
     transformations::Vector{Transform}
     offsets::Int64
+    AlgebraFrame{T}(n::Integer, names::Vector{String}, types::Vector{Type}, 
+    gen::Vector{Function}, transforms::Vector{Transform}, offset::Number) where {T} = begin
+        new{T}(n, names, types, gen, transforms, offset)
+    end
     AlgebraFrame(n::Int64, pairs::Pair{<:Any, DataType} ...; T::Symbol = :a) = begin
         dct = Dict(pairs ...)
         names = [keys(dct) ...]
@@ -339,7 +343,24 @@ join!(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
 end
 
 join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
-
+    if af.length != af2.length
+        throw("future error here")
+    end
+    n = length(af.names)
+    names = nothing
+    gen = nothing
+    T = nothing
+    if axis < n
+        names = vcat(af.names[1:axis], af2.names, af.names[axis + 1:end])
+        gen = vcat(af.gen[1:axis], af2.gen, af.gen[axis + 1:end])
+        T = vcat(af.T[1:axis], af2.T, af.T[axis + 1:end])
+    else
+        names = vcat(af.names, af2.names)
+        gen = vcat(af.gen, af2.gen)
+        T = vcat(af.T, af2.T)
+    end
+    AlgebraFrame{:a}(af.length, names, T, gen, vcat(af.transformations, af2.transformations), 
+        af.offsets + af2.offsets)::AlgebraFrame{:a}
 end
 
 merge(af::AlgebraFrame, af2::AlgebraFrame; index::Int64 = af.length) = begin
@@ -357,7 +378,6 @@ merge!(af::AlgebraFrame, af2::AlgebraFrame; axis::Int64 = af.length + af.offsets
 
 end
 
-# basic `Frame` API:
 
 function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::AbstractVector; axis::Any = length(f.names))
     if typeof(axis) <: AbstractString
@@ -389,7 +409,7 @@ function deleteat!(f::AbstractFrame, observations::UnitRange{Int64})
 end
 
 function deleteat!(f::AbstractFrame, observation::Int64)
-    [deleteat!(f.values[e], observation) for e in 1:length(values)]
+    [deleteat!(f.values[e], observation) for e in 1:length(f.values)]
     f::AbstractFrame
 end
 
@@ -407,40 +427,26 @@ function pairs(f::AbstractFrame)
     [f.names[e] => f.values[e] for e in 1:length(f.values)]
 end
 
-function merge()
+function merge(f::AbstractFrame, af::AbstractFrame)
 
 end
 
-function merge!()
+function merge!(f::AbstractFrame, af::AbstractFrame)
 
 end
 
-# frame row API:
-
-#===
-special functions (for both)
-===#
 # filtering
-
-function filter!(f::Function, af::AbstractAlgebraFrame)
-    N::Int64 = length(af.names)
-    for x in 1:af.length
-        row = FrameRow(af.names, [af[e, x] for e in 1:N])
-        remove = f(row)
-        if remove
-            deleteat!(af, x)
-        end
-    end
-    af::AbstractAlgebraFrame
-end
 
 function filter!(f::Function, af::AbstractDataFrame)
     N::Int64 = length(af.names)
+    remove::Vector{Bool} = Vector{Bool}()
     for x in 1:length(af.values[1])
         row = FrameRow(af.names, [af.values[e][x] for e in 1:N])
-        remove = f(row)
-        if remove
-            deleteat!(af, x)
+        push!(remove, ~(f(row)))
+    end
+    for val in range(length(remove), 1, step = -1)
+        if remove[val]
+            deleteat!(af, val)
         end
     end
     af::AbstractDataFrame
@@ -448,19 +454,38 @@ end
 
 # replace
 function replace!(af::AbstractDataFrame, value::Any, with::Any)
+    for column in 1:length(af.values)
+        replace!(af.values[column], value, with)
+    end
+end
 
+function replace!(a::AbstractArray, value::Any, with::Any)
+    for value in 1:length(a)
+        if value == with
+            a[value] = with
+        end
+    end
 end
 
 function replace!(af::AbstractDataFrame, col::Int64, value::Any, with::Any)
+    replace!(af.values[col], value, with)
+end
+
+function cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
+    af.T[col] = to
+    af.gen[col] = f
+end
+
+function cast!(f::Function, af::AbstractAlgebraFrame, col::String, to::Type)
+    f = findfirst(name -> name == col, af.names)
+    cast!(f, af, f, to)
+end
+
+function cast!(a::AbstractArray, to::Type{<:Number})
 
 end
 
-
-function cast!(af::AbstractAlgebraFrame, col::Int64, to::Type)
-
-end
-
-function cast!(af::AbstractAlgebraFrame, col::String, to::Type)
+function cast!(a::AbstractArray, to::Type{<:AbstractString})
 
 end
 
