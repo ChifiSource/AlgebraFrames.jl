@@ -186,13 +186,6 @@ function pairs(f::AbstractDataFrame)
     [f.names[e] => f.values[e] for e in length(f.names)]
 end
 
-function framerows(f::AbstractDataFrame)
-    n = length(f.names)
-    [begin
-        FrameRow(f.names, [f.values[col][e] for col in 1:n])
-    end for e in 1:length(f.values[1])]
-end
-
 getindex(f::AbstractFrame, cols::UnitRange{<:Integer}) = begin
     Frame([f.names[e] for e in cols], [f.types[e] for e in cols], [f.values[e] for e in cols])
 end
