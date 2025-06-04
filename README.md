@@ -1,5 +1,8 @@
 <div align="center">
   <img src="https://github.com/ChifiSource/image_dump/blob/main/algebraframes/alframe.png" width="200"></img>
+
+[documentation](https://chifidocs.com/algebraframes/AlgebraFrames)
+  
   <h6>algebraframes !</h6>
 </div>
 
@@ -11,7 +14,6 @@
 ###### map
 - [get started](#get-started)
   - [adding algebraframes]()
-  - [first steps]()
   - [documentation]()
 - [Algebra](#algebra)
   - [creation](#algebra-creation)
@@ -27,3 +29,8 @@
   - [contributing guidelines]()
   
 ### get started
+
+###### adding algebraframes
+
+###### documentation
+- [chifidocs documentation](https://chifidocs.com/algebraframes/AlgebraFrames) [ecosystem](https://chifidocs.com/algebraframes)

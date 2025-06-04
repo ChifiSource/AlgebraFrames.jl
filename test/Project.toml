@@ -1,0 +1,11 @@
+name = "test"
+uuid = "81902b05-c5f2-4a3e-b6f7-782c8ff72efc"
+authors = ["emmac <emmaccode@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+AlgebraFrames = "91245b94-7320-4a9d-ac3a-8d3b3e6674af"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Test = "1.11.0"
