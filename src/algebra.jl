@@ -28,7 +28,7 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     pipe::Vector{Function}
     length::Int64
     offsets::Pair{Int64, Int64}
-    Algebra{T, N}(pipe::Vector{Function}, length::Int64, offsets::Pair{Int64, Int64}) = new{T, N}(pipe, 
+    Algebra{T, N}(pipe::Vector{Function}, length::Int64, offsets::Pair{Int64, Int64}) where {T <: Any, N <: Any}= new{T, N}(pipe, 
         length, offsets)
     Algebra{T, N}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where {T <: Any, N <: Any} = begin
         funcs::Vector{Function} = Vector{Function}([f])
@@ -131,8 +131,24 @@ function generate(alg::Algebra{<:Any, <:Any})
     return(generated)
 end
 
+function generate(alg::AbstractAlgebra, dim::UnitRange{Int64})
+    gen = first(alg.pipe)
+    params = methods(gen)[1].sig.parameters
+    generated = if length(params) > 1
+        @info minimum(dim) - 1 
+        @info length(alg) - maximum(dim)
+        @info vcat(fill(0, minimum(dim) - 1), [gen(dim) for dim in dim], 
+        fill(0, length(alg) - maximum(dim)))
+        vcat(fill(0, minimum(dim) + 1), [gen(dim) for dim in dim], 
+        fill(0, length(alg) - maximum(dim)))
+    else
+        gen()[dim]
+    end
+    generated
+end
+
 function getindex(alg::AlgebraVector{<:Any}, dim::Int64)
-    generated = generate(alg, dim)
+    generated = generate(alg, dim:dim)
     N = typeof(alg).parameters[2]
     [begin
         try
@@ -141,7 +157,7 @@ function getindex(alg::AlgebraVector{<:Any}, dim::Int64)
             throw("Algebra error todo here")
         end
     end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::Any
+    generated[dim]
 end
 
 getindex(alg::AbstractAlgebra, dim::Int64) = begin
@@ -204,7 +220,8 @@ function vcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
             throw("future bounds error")
         end
         total_len += alg.length
-        offsets[1], offsets[2] += alg.offsets[1], alg.offsets[2]
+        offsets[1] += alg.offsets[1]
+        offsets[2] += alg.offsets[2]
         push!(origin.pipe, alg.pipe ...)
     end
     Algebra{T, dim}(pipe, total_len, offsets)::Algebra{T, dim}
