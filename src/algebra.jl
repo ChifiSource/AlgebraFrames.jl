@@ -84,7 +84,7 @@ algebra_initializer(T::Type{<:AbstractFloat}) = x -> T(0.0)
 algebra_initializer(T::Type{Float64}) = x -> 0.0
 algebra_initializer(T::Type{String}) = x -> "null"
 
-deleteat!(alg::AlgebraVector{<:Any}, n::Int64) = begin
+deleteat!(alg::AbstractAlgebra, n::Int64) = begin
     algebra!(alg) do res
         deleteat!(res, n)
     end
@@ -145,8 +145,11 @@ function generate(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{In
     end
     col_length = Int64(round(N_COLS / alg.length))
     generated = if length(params) > 1
-        vals = (vcat(fill(0, minimum(row) - 1), [gen(Int64(round(dim + colrange * col_length))) for dim in row], 
-        fill(0, length(alg) - maximum(row))) for colrange in N_COLS)
+        vals = (vcat(
+            fill(0, minimum(row) - 1),
+            [gen((dim - 1) + colrange * alg.length + 1) for dim in row],
+            fill(0, length(alg) - maximum(row))
+        ) for colrange in 0:N_COLS)
         hcat(vals ...)
     else
         gen()
@@ -154,11 +157,14 @@ function generate(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{In
     generated
 end
 
-getindex(alg::AbstractAlgebra, dim::Int64) = getindex(alg, dim:dim, 1:1)[dim]
+getindex(alg::AbstractAlgebra, dim::Int64) = begin
+    getindex(alg, dim:dim, 1:1)[1]
+end
 
 getindex(alg::AbstractAlgebra, dim::Int64, dim2::Int64) = getindex(alg, dim:dim, dim2:dim2)[dim, dim2]
 
-function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
+
+function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:1)
     generated = generate(alg, row, col)
     [begin
         try
@@ -167,7 +173,11 @@ function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{In
             throw("Algebra error todo here")
         end
     end for func in alg.pipe[2:length(alg.pipe)]]
-    generated::AbstractArray
+    if col == 1:1
+        generated[row]
+    else
+        generated[row, col]
+    end
 end
 
 function vect(alg::AbstractAlgebra)
