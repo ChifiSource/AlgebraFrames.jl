@@ -392,6 +392,9 @@ end
 
 function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
     n = length(f.names)
+    if typeof(axis) <: AbstractString
+        axis = findfirst(n::String -> n == axis, f.names)
+    end
     if axis < n
         f.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
         f.values = vcat(f.values[1:axis], f2.values, f.values[axis + 1:end])
@@ -405,6 +408,9 @@ function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
 end
 
 function join(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
+    if typeof(axis) <: AbstractString
+        axis = findfirst(n::String -> n == axis, f.names)
+    end
     newf = copy(f)
     if axis < n
         newf.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
@@ -461,7 +467,12 @@ function pairs(f::AbstractFrame)
 end
 
 function merge(f::AbstractFrame, af::AbstractFrame)
-
+    for coln in 1:length(af.names)
+        name = af.names[coln]
+        if ~(name in f.names)
+            continue
+        end
+    end
 end
 
 function merge!(f::AbstractFrame, af::AbstractFrame)

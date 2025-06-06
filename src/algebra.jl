@@ -40,6 +40,11 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
 
 end
 
+function copy(alg::AbstractAlgebra)
+    params = typeof(alg).parameters
+    Algebra{params[1], params[2]}(alg.pipe, alg.length, alg.offsets)
+end
+
 Algebra{T}(f::Function = x -> 0, length::Int64 = 1, width::Int64 = 1) where T <: Any = begin
     Algebra{T, width}(f, length)::AbstractAlgebra
 end
@@ -61,10 +66,6 @@ end
 
 const AlgebraVector{T} = Algebra{T,1}
 
-function shape(algebra::Algebra{<:Any, <:Any})
-    (algebra.length, typeof(algebra).parameters[2])
-end
-
 function show(io::IO, algebra::Algebra{<:Any, <:Any})
     cols, rows = typeof(algebra).parameters[2], length(algebra)
     T = typeof(algebra).parameters[1]
@@ -72,6 +73,8 @@ function show(io::IO, algebra::Algebra{<:Any, <:Any})
 end
 
 function reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
+    current_rows = typeof(alg).parameters[2]
+    current_len = length(alg)
 
 end
 
@@ -131,50 +134,32 @@ function generate(alg::Algebra{<:Any, <:Any})
     return(generated)
 end
 
-function generate(alg::AbstractAlgebra, dim::UnitRange{Int64})
+function generate(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:1)
     gen = first(alg.pipe)
+    N_COLS = typeof(alg).parameters[2]
     params = methods(gen)[1].sig.parameters
+    if maximum(col) > N_COLS
+
+    elseif maximum(row) > alg.length
+        throw("indexing too big of a value for the length")
+    end
+    col_length = Int64(round(N_COLS / alg.length))
     generated = if length(params) > 1
-        @info minimum(dim) - 1 
-        @info length(alg) - maximum(dim)
-        @info vcat(fill(0, minimum(dim) - 1), [gen(dim) for dim in dim], 
-        fill(0, length(alg) - maximum(dim)))
-        vcat(fill(0, minimum(dim) + 1), [gen(dim) for dim in dim], 
-        fill(0, length(alg) - maximum(dim)))
+        vals = (vcat(fill(0, minimum(row) - 1), [gen(Int64(round(dim + colrange * col_length))) for dim in row], 
+        fill(0, length(alg) - maximum(row))) for colrange in N_COLS)
+        hcat(vals ...)
     else
-        gen()[dim]
+        gen()
     end
     generated
 end
 
-function getindex(alg::AlgebraVector{<:Any}, dim::Int64)
-    generated = generate(alg, dim:dim)
-    N = typeof(alg).parameters[2]
-    [begin
-        try
-            func(generated)
-        catch e
-            throw("Algebra error todo here")
-        end
-    end for func in alg.pipe[2:length(alg.pipe)]]
-    generated[dim]
-end
+getindex(alg::AbstractAlgebra, dim::Int64) = getindex(alg, dim:dim, 1:1)[dim]
 
-getindex(alg::AbstractAlgebra, dim::Int64) = begin
-    generate(alg)[dim]
-end
-
-getindex(alg::AbstractAlgebra, dim::Int64, dim2::Int64) = getindex(alg, dim:dim, dim:dim)
+getindex(alg::AbstractAlgebra, dim::Int64, dim2::Int64) = getindex(alg, dim:dim, dim2:dim2)[dim, dim2]
 
 function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:typeof(alg).parameters[2])
-    gen = first(alg.pipe)
-    generated = [gen(e) for e in row]
-    len = length(generated)
-    lastlen = length(generated)
-    [begin
-        generated = hcat(generated, [gen(e) for e in lastlen + 1:(lastlen + len)])
-        lastlen += len
-    end for column in col[2:length(col)]]
+    generated = generate(alg, row, col)
     [begin
         try
             func(generated)
@@ -228,5 +213,17 @@ function vcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
 end
 
 function hcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
-    Algebra()
+    T = typeof(origin)
+    dim = T.parameters[2]
+    total_len = origin.length
+    offsets = origin.offsets
+    pipe = origin.pipe
+    T = T.parameters[1]
+    for alg in algebra
+        push!(pipe, alg.pipe ...)
+        dim += 1
+        offsets[1] += alg.offsets[1]
+        offsets[2] += alg.offsets[2]
+    end
+    Algebra{T, dim}(pipe, total_len, offsets)
 end
