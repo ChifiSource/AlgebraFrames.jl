@@ -28,7 +28,6 @@ using Test
             values[5] = 10
          end
          @test length(alg.pipe) > 1
-         @warn [alg]
          @test alg[1] == 25
          @test alg[5] == 10
          @test alg[1:2] == [25, 10]
@@ -59,7 +58,7 @@ using Test
          end
          @test insta_gen[1] == 1
          @test insta_gen[2] == 2
-         @test generate(alg) == [e for e in 1:10]
+         @test generate(insta_gen) == [e for e in 1:10]
          multidim = algebra(Int64, (5, 5)) do e
             e
          end
@@ -74,25 +73,49 @@ using Test
             e
          end
          @test size(multidim) == (5, 5)
-         deleteat!(insta_gen, 1)
-         @test length(insta_gen) == 9
-         @test length([insta_gen]) == 9
          cop = copy(insta_gen)
          @test cop.offsets == insta_gen.offsets
          @test cop.length == insta_gen.length
-         @test [cop] == insta_gen[cop]
-         # TODO hcat, vcat, reshape tests
+         @test [cop] == [insta_gen]
+         one = algebra(Int64, 5)
+         two = algebra(Int64, 5)
+         @test length(vcat(one, two)) == 10
+         @test typeof(hcat(one, two)).parameters[2] == 2
+         mydim = algebra(Int64, (2, 5))
+         @test size(mydim) == (2, 5)
+         r = reshape(mydim, 5, 2)
+         @test length(eachcol(r)) == 2
       end
    end
    @testset "AlgebraFrame" verbose = true begin
+      af = algebra(15, "A" => Int64, "B" => String)
       @testset "constructors" begin
-
+         trans = AlgebraFrames.Transform(Vector{Int16}(), print)
+         @test typeof(trans) == AlgebraFrames.Transform
+         @test length(af) == 15
+         @test length(af.names) == 2
+         @test "A" in af.names
       end
       @testset "getters" begin
-
+         @test length(names(af)) == 2
+         @test length(af) == 15
+         @test size(af) == (15, 2)
+         e = 0
+         for x in framerows(af)
+            @test "B" in x.names
+            @test length(x.values) == 2
+            @test x["A"] == 0
+         end
+         dct = Dict(af)
+         @test length(keys(dct)) == 2
+         @test length(first(dct)[2]) == 15
       end
       @testset "algebra" begin
-
+         algebra!(af) do f::Frame
+            f["A"][1] = 5
+         end
+         @test af["A"][1] == 5
+         
       end
       @testset "generation" begin
 
