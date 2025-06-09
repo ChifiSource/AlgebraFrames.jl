@@ -53,7 +53,9 @@ end
 
 names(af::AbstractAlgebraFrame) = af.names
 
-length(af::AbstractAlgebraFrame) = af.length + offsets
+size(af::AbstractAlgebraFrame) = (af.length, length(af.names))
+
+length(af::AbstractAlgebraFrame) = af.length + af.offsets
 
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
@@ -134,7 +136,7 @@ function pairs(af::AbstractAlgebraFrame)
     generated = generate(af)
     [begin 
         names[e] => generated.values[e]
-    end for e in 1:af.length]
+    end for e in 1:length(af.names)]
 end
 
 Dict(af::AbstractAlgebraFrame) = Dict(pairs(af) ...)
