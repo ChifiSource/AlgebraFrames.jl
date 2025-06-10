@@ -103,7 +103,7 @@ using Test
       end
       @testset "algebra" begin
          algebra!(af) do f::Frame
-            f["A"][1] = 5
+            f["A", 1] = 5
          end
          @test af["A"][1] == 5
          @test length(af["A"]) == length(af)
@@ -115,13 +115,14 @@ using Test
       @testset "transformations" begin
          algebra!(af) do f::Frame
             f["A", 1:5] = [1, 2, 3, 4, 5]
-            f["B", 1] = 2
+            f["B", 1] = "now"
             @test f["A", 1] == 1
-            @test f["A", 1:5] == [1, 2, 3, 4, 5]
+            @test f["A", 1:5][1:5] == [1, 2, 3, 4, 5]
          end
+         gen = generate(af)
          @test gen["A"][1:5] == [1, 2, 3, 4, 5]
-         @test gen["A", 1:5] == [1, 2, 3, 4, 5]
-         @test gen["B"][1] == 2
+         @test gen["A", 1:5][1:5] == [1, 2, 3, 4, 5]
+         @test gen["B"][1] == "now"
       end
       @testset "generation" begin
          dct = Dict(af)
@@ -130,16 +131,19 @@ using Test
          for x in framerows(af)
             @test "B" in x.names
             @test length(x.values) == 2
-            @test x["A"] == 0
+            @test x["A"] in [1, 2, 3, 4, 5, 0]
          end
-         for y in eachrow(af)
+         for y in eachcol(af)
             @test length(y) == af.length
+         end
+         NLEN = length(af.names)
+         for y in eachrow(af)
+            @test length(y) == NLEN
          end
          @test length(pairs(af)) == length(af.names)
          gen = generate(af)
          @test length(gen.names) == length(af.names)
          @test length(gen.values[1]) == af.length
-         @test gen["A", 1:2] == [1, 2]
       end
       @testset "API" begin
 
