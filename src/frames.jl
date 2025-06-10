@@ -181,7 +181,7 @@ function eachrow(f::AbstractDataFrame)
 end
 
 function pairs(f::AbstractDataFrame)
-    [f.names[e] => f.values[e] for e in length(f.names)]
+    [f.names[e] => f.values[e] for e in 1:length(f.names)]
 end
 
 getindex(f::AbstractFrame, cols::UnitRange{<:Integer}) = begin
@@ -404,7 +404,8 @@ merge(af::AlgebraFrame, af2::AlgebraFrame) = begin
     cop = copy(af)
     cop.length += af2.length
     cop.offsets += af2.offsets
-    push!(cop.transformations, af2.transformations)
+    push!(cop.transformations, af2.transformations ...)
+    cop
 end
 
 merge!(af::AlgebraFrame, af2::AlgebraFrame) = begin
@@ -496,9 +497,6 @@ function eachcol(f::AbstractFrame)
     f.values::Vector{<:AbstractVector}
 end
 
-function pairs(f::AbstractFrame)
-    [f.names[e] => f.values[e] for e in 1:length(f.values)]
-end
 
 function merge(f::AbstractFrame, af::AbstractFrame)
     n = 0
@@ -512,7 +510,7 @@ function merge(f::AbstractFrame, af::AbstractFrame)
         n += 1
         cop.values[position] = vcat(cop.values[position], af.values[coln])
     end
-    if n > 0 && n != length(names)
+    if n > 0 && n != length(af.names)
         lens = [length(col) for col in cop.values]
         set_len = lens[1]
         f = findfirst(val -> val != set_len, cop.values)
@@ -568,20 +566,24 @@ end
 # replace
 function replace!(af::AbstractDataFrame, value::Any, with::Any)
     for column in 1:length(af.values)
-        replace!(af.values[column], value, with)
+        af.values[column] = replace!(af.values[column], value, with)
     end
 end
 
-function replace!(a::AbstractArray, value::Any, with::Any)
+function replace!(a::AbstractArray, rep_value::Any, with::Any)
     for value in 1:length(a)
-        if value == with
+        if a[value] == rep_value
             a[value] = with
         end
     end
+    a
 end
 
-function replace!(af::AbstractDataFrame, col::Int64, value::Any, with::Any)
-    replace!(af.values[col], value, with)
+function replace!(af::AbstractDataFrame, col::Any, value::Any, with::Any)
+    if typeof(col) <: AbstractString
+        col = findfirst(val -> val == col, af.names)
+    end
+    af.values[col] = replace!(af.values[col], value, with)
 end
 
 function cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
@@ -589,14 +591,21 @@ function cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
     af.gen[col] = f
 end
 
+cast!(af::AbstractAlgebraFrame, col::Any, to::Type{<:Any}) = cast!(algebra_initializer(to), af, col, to)
+
 function cast!(f::Function, af::AbstractAlgebraFrame, col::String, to::Type)
-    f = findfirst(name -> name == col, af.names)
-    cast!(f, af, f, to)
+    found = findfirst(name -> name == col, af.names)
+    cast!(f, af, found, to)
 end
 
-function cast(a::AbstractArray, to::Type{<:Number})
+function cast(a::AbstractArray, to::Type{<:Number})::AbstractArray
+    if typeof(a[1]) <: AbstractString
+        return([begin
+            parse(to, val) 
+        end for val in a])
+    end
     [begin
-        parse(to, val) 
+        to(val) 
     end for val in a]
 end
 
@@ -608,14 +617,13 @@ function cast(a::AbstractArray, to::Type{<:AbstractString})
     [to(string(val)) for val in a]
 end
 
-
 function cast!(af::AbstractDataFrame, col::Int64, to::Type)
-    f.types[col] = to
-    f.values[col] = cast(f.values[col], to)
+    af.types[col] = to
+    af.values[col] = cast(af.values[col], to)
 end
 
 function cast!(af::AbstractDataFrame, col::String, to::Type)
-    f = findfirst(name -> name == col, af)
+    f = findfirst(name -> name == col, af.names)
     if isnothing(f)
         throw("future error")
     end

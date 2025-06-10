@@ -145,6 +145,7 @@ using Test
          @test length(gen.names) == length(af.names)
          @test length(gen.values[1]) == af.length
       end
+      af = algebra(15, "A" => Int64, "B" => String)
       @testset "API" begin
          # Af api
          af2 = algebra(5, "A" => Int64, "B" => String)
@@ -162,13 +163,14 @@ using Test
          @test length(names(af)) == 2
          @test ~("A" in names(af))
          gen = generate(af)
+         @test "C" in names(gen)
          @test ~("A" in names(gen))
          @test length(names(gen)) == 2
-         @test "C" in names(gen)
          @test "B" in names(gen)
+         gen = generate(af2)
          newcol = algebra(combided.length, "W" => Float64, "Y" => Int64)
          joined = join(combided, newcol)
-         for x in ("W", "B", "C", "Y")
+         for x in ("W", "Y")
             @test x in names(joined)
             @test ~(x in names(combided))
          end
@@ -177,16 +179,59 @@ using Test
             @test x in names(combided)
          end
          # f api
-         # (merge, size, filter, length, join, join!)
-         @test size(gen) == size(af)
-         @test gen["B", 1:3] == ["now", "null", "null"]
+         # (merge, size, length, join, join!, names, etc...)
+         @test size(gen) == size(af2)
+         @test gen["B", 1:3][1:3] == ["null", "null", "null"]
+         @test length(gen) == length(af2)
+         @test length(names(gen)) == 2
          # replace!
+         af = algebra(20, "A" => Int64, "B" => String)
+         algebra!(af) do f::Frame
+            replace!(f, "null", "n")
+         end
+         @test af["B"][2] == "n"
+         join!(af, "C" => Int64)
+         algebra!(af) do f::Frame
+            replace!(f, "A", 0, 5)
+         end
+         gen = generate(af)
+         @test ~(0 in gen["A"])
+         @test 0 in gen["C"]
+         mergef = merge(generate(af), generate(af))
+         @test length(mergef) == length(af) * 2
          # cast!
+         cast!(af, "A", Float64)
+         @test Float64 in af.T
+         @test typeof(af["A"]) == Vector{Float64}
+         testgen = generate(af)
+         cast!(testgen, "A", Float64)
+         @test typeof(testgen["A", 1]) == Float64
          # filter!
-         # frame rows
+         newf = algebra(5, "A" => Int64, "B" => String)
+         set_generator!(newf, "A") do e
+            [5, 6, 22, 33, 8][e]
+         end
+         algebra!(newf) do frame::Frame
+            filter!(frame) do row::FrameRow
+               row["A"] > 22
+            end
+         end
+         @test length(generate(newf)) < 5
+         found = findfirst(x -> x < 22, generate(newf)["A"])
+         @test isnothing(found)
+         # drop! + deleteat!
+         drop!(gen, "A")
+         @test ~("A" in names(gen))
+         # frame rows/pairs/eachcol/eachrow
+         for row in framerows(gen)
+            @test "C" in names(row)
+            break
+         end
+         @test length(eachcol(gen)) == 2
+         @test length(pairs(gen)) == 2
+         @test "C" in keys(Dict(pairs(gen) ...))
+         @test length(eachrow(gen)) == length(gen)
+         @test length(gen) == length(af)
       end
-   end
-   @testset "full test" begin
-
    end
 end
