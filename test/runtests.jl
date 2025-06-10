@@ -177,13 +177,28 @@ using Test
             @test x in names(combided)
          end
          # f api
-         # (merge, size, filter, length, join, join!)
+         # (merge, size, length, join, join!, names, etc...)
          @test size(gen) == size(af)
          @test gen["B", 1:3] == ["now", "null", "null"]
+         @test length(gen) == length(af)
+         @test length(names(gen)) == 2
          # replace!
+         af = algebra(20, "A" => Int64, "B" => Int64)
+         algebra!(af) do f::Frame
+            replace!(af, "null", "n")
+         end
+         @test f["B"][2] == "n"
+         join!(af, "C" => Int64)
+         algebra!(af) do f::Frame
+            replace!(af, "A", 0, 5)
+         end
+         gen = generate(af)
+         @test ~(0 in gen["A"])
+         @test 0 in gen["C"]
          # cast!
          # filter!
-         # frame rows
+         # drop! + deleteat!
+         # frame rows/pairs/eachcol/eachrow
       end
    end
    @testset "full test" begin

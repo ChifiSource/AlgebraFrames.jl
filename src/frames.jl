@@ -574,13 +574,16 @@ end
 
 function replace!(a::AbstractArray, value::Any, with::Any)
     for value in 1:length(a)
-        if value == with
+        if a[value] == with
             a[value] = with
         end
     end
 end
 
-function replace!(af::AbstractDataFrame, col::Int64, value::Any, with::Any)
+function replace!(af::AbstractDataFrame, col::Any, value::Any, with::Any)
+    if typeof(col) <: AbstractString
+        col = findfirst(val -> val == col, af.names)
+    end
     replace!(af.values[col], value, with)
 end
 
