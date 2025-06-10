@@ -146,7 +146,44 @@ using Test
          @test length(gen.values[1]) == af.length
       end
       @testset "API" begin
-
+         # Af api
+         af2 = algebra(5, "A" => Int64, "B" => String)
+         combided = merge(af, af2)
+         @test length(combided) == length(af) + length(af2)
+         @test length(generate(combided)) == length(af) + length(af2)
+         join!(af, "C" => Int64) do e
+            e
+         end
+         @test size(af) == (length(af), 3)
+         @test length(names(af)) == 3
+         @test length(names(combided)) == 3
+         @test "C" in names(af)
+         drop!(af, "A")
+         @test length(names(af)) == 2
+         @test ~("A" in names(af))
+         gen = generate(af)
+         @test ~("A" in names(gen))
+         @test length(names(gen)) == 2
+         @test "C" in names(gen)
+         @test "B" in names(gen)
+         newcol = algebra(combided.length, "W" => Float64, "Y" => Int64)
+         joined = join(combided, newcol)
+         for x in ("W", "B", "C", "Y")
+            @test x in names(joined)
+            @test ~(x in names(combided))
+         end
+         join!(combided, newcol)
+         for x in ("W", "B", "C", "Y")
+            @test x in names(combided)
+         end
+         # f api
+         # (merge, size, filter, length, join, join!)
+         @test size(gen) == size(af)
+         @test gen["B", 1:3] == ["now", "null", "null"]
+         # replace!
+         # cast!
+         # filter!
+         # frame rows
       end
    end
    @testset "full test" begin

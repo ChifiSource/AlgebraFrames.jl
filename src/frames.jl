@@ -152,6 +152,12 @@ mutable struct Frame <: AbstractDataFrame
     values::Vector{Vector{<:Any}}
 end
 
+length(f::AbstractFrame) = length(f.values[1])
+
+size(f::AbstractFrame) = (length(f.values[1]), length(f.names))
+
+names(f::AbstractFrame) = f.names
+
 copy(f::Frame) = Frame(f.names, f.types, f.values)
 
 function loop_rows(f::Function, af::AbstractDataFrame)
@@ -290,13 +296,17 @@ function display(io::IO, mime::MIME{Symbol("text/html")}, frame::AbstractDataFra
     display(MIME"text/html"(), html_string(frame))
 end
 
-function html_string(frame::Frame)
+function html_string(frame::Frame, headlength::Int64 = 5, start::Integer = 1)
     header = "<table><tr>" * join("<th>$name</th>" for name in frame.names) * "</tr>"
-    for row in eachrow(frame)
+    for row in eachrow(frame)[start:headlength]
         header = header * "<tr>" * join("<td>$val</td>" for val in row) * "</tr>"
     end
     header * "</table>"
 end
+
+head(f::Frame, headlength::Int64 = 5)  = display("/text/html", html_string(f, headlength))
+
+tail(f::Frame, length::Int64) = display("/text/html", html_string(f, headlength, length(f) - length))
 
 function deleteat!(af::AlgebraFrame, row_n::Int64)
     del = f -> begin
