@@ -214,6 +214,13 @@ getindex(f::AbstractFrame, name::String, observations::UnitRange{Int64} = 1:leng
     f.values[axis]
 end
 
+getindex(af::AbstractFrame, col::Any, at::Integer) = begin
+    if typeof(col) <: AbstractString
+        col = findfirst(n -> n == col, af.names)
+    end
+    getindex(af, col, at:at)[at]
+end
+
 function setindex!(f::AbstractFrame, ind::Integer, value::AbstractVector)
     n::Int64 = length(f.names)
     if ind > n
@@ -225,7 +232,7 @@ function setindex!(f::AbstractFrame, ind::Integer, value::AbstractVector)
     f::AbstractFrame
 end
 
-function setindex!(f::AbstractFrame, colname::String, value::AbstractVector)
+function setindex!(f::AbstractFrame, value::AbstractVector, colname::String)
     position = findfirst(x -> x == colname, names)
     if isnothing(position)
         # (adds a new column)
@@ -237,7 +244,7 @@ function setindex!(f::AbstractFrame, colname::String, value::AbstractVector)
 end
 
 
-function setindex!(f::AbstractFrame, position::Int64, row::Any ...)
+function setindex!(f::AbstractFrame, row::Tuple, position::Int64)
     row = FrameRow(f.names, [row ...])
     f[position] = row
 end
@@ -254,6 +261,31 @@ function setindex!(f::AbstractFrame, axis::Any, position::Int64, value::Any)
     end
     f.values[axis][position] = value
     f::AbstractFrame
+end
+
+function setindex!(f::AbstractDataFrame, to::Any, col::Any, n::Integer)
+    if typeof(col) <: AbstractString
+        col = findfirst(n -> n == col, f.names)
+    end
+    f.values[col][n] = to
+end
+
+function setindex!(f::AbstractDataFrame, to::AbstractVector, col::Any, n::UnitRange{Int64})
+    if typeof(col) <: AbstractString
+        col = findfirst(n -> n == col, f.names)
+    end
+    len = length(f.values[col])
+    finisher = maximum(n)
+    starter = minimum(n)
+    if minimum(n) > 1 && finisher != len
+        f.values[col] = vcat(f.values[col][1:to - 1], to, f.values[col][finisher + 1:len])
+    elseif finisher == len
+        f.values[col] = vcat(f.values[col][1:to - 1], to)
+    else
+        f.values[col] = vcat(to, f.values[col][finisher:len])
+    end
+
+    f::AbstractDataFrame
 end
 
 function show(io::IO, frame::AbstractDataFrame)
