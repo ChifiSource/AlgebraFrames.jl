@@ -87,7 +87,7 @@ using Test
          @test length(eachcol(r)) == 2
       end
    end
-   @testset "AlgebraFrame" verbose = true begin
+   @testset "Algebra Frames" verbose = true begin
       af = algebra(15, "A" => Int64, "B" => String)
       @testset "constructors" begin
          trans = AlgebraFrames.Transform(Vector{Int16}(), print)
@@ -100,39 +100,46 @@ using Test
          @test length(names(af)) == 2
          @test length(af) == 15
          @test size(af) == (15, 2)
-         e = 0
-         for x in framerows(af)
-            @test "B" in x.names
-            @test length(x.values) == 2
-            @test x["A"] == 0
-         end
-         dct = Dict(af)
-         @test length(keys(dct)) == 2
-         @test length(first(dct)[2]) == 15
       end
       @testset "algebra" begin
          algebra!(af) do f::Frame
             f["A"][1] = 5
          end
          @test af["A"][1] == 5
-         
+         @test length(af["A"]) == length(af)
+         gen = generate(af)
+         @test gen["A"] == af["A"]
+         @test gen["B"] == af["B"]
+         @test typeof(gen["B"][1]) <: AbstractString
+      end
+      @testset "transformations" begin
+         algebra!(af) do f::Frame
+            f["A", 1:5] = [1, 2, 3, 4, 5]
+            f["B", 1] = 2
+            @test f["A", 1] == 1
+            @test f["A", 1:5] == [1, 2, 3, 4, 5]
+         end
+         @test gen["A"][1:5] == [1, 2, 3, 4, 5]
+         @test gen["A", 1:5] == [1, 2, 3, 4, 5]
+         @test gen["B"][1] == 2
       end
       @testset "generation" begin
-
-      end
-      @testset "API" begin
-
-      end
-   end
-   @testset "Frame" verbose = true begin
-      @testset "frame and frame row constructors" begin
-
-      end
-      @testset "indexing" begin
-
-      end
-      @testset "getters" begin
-
+         dct = Dict(af)
+         @test length(keys(dct)) == 2
+         @test length(first(dct)[2]) == 15
+         for x in framerows(af)
+            @test "B" in x.names
+            @test length(x.values) == 2
+            @test x["A"] == 0
+         end
+         for y in eachrow(af)
+            @test length(y) == af.length
+         end
+         @test length(pairs(af)) == length(af.names)
+         gen = generate(af)
+         @test length(gen.names) == length(af.names)
+         @test length(gen.values[1]) == af.length
+         @test gen["A", 1:2] == [1, 2]
       end
       @testset "API" begin
 
