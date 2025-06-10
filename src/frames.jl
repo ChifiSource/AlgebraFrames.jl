@@ -45,8 +45,7 @@ generate(af::AbstractAlgebraFrame) = begin
     end for col in 1:length(af.names)]
     newf = Frame(af.names, af.T, values)
     for transform in af.transformations
-        current_frame = newf[transform.col]
-        transform.f(current_frame)
+        transform.f(newf)
     end
     newf::Frame
 end
@@ -93,19 +92,10 @@ function getindex(af::AbstractAlgebraFrame, column::Int64, r::UnitRange{Int64} =
         if column in transform.col
             n = length(transform.col)
             position = findfirst(i -> i == column, transform.col)
-            filtered = if position != n
-                vcat(transform.col[1:position - 1], transform.col[position:end])
-            elseif position == 1
-                transform.col[position:end]
-            else
-                transform.col[position:position]
-            end
             curr_names = [af.names[e] for e in transform.col]
             curr_types = [af.T[e] for e in transform.col]
-            curr_vals = Vector{AbstractVector}([Vector{af.T[column_n]}([af.gen[column_n](e) for e in 1:af.length]) for column_n in filtered])
-            for column_n in filtered
-
-            end
+            curr_vals = Vector{AbstractVector}([Vector{af.T[column_n]}([af.gen[column_n](e) for e in 1:af.length]) for column_n in 1:length(af.names)])
+            deleteat!(curr_vals, position)
             insert!(curr_vals, position, init)
             n_frame = Frame(curr_names, curr_types, curr_vals)
             transform.f(n_frame)
@@ -282,7 +272,7 @@ function setindex!(f::AbstractDataFrame, to::AbstractVector, col::Any, n::UnitRa
     elseif finisher == len
         f.values[col] = vcat(f.values[col][1:to - 1], to)
     else
-        f.values[col] = vcat(to, f.values[col][finisher:len])
+        f.values[col] = vcat(to, f.values[col][finisher + 1:len])
     end
 
     f::AbstractDataFrame
