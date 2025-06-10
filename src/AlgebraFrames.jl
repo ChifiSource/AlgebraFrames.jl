@@ -1,87 +1,51 @@
 """
 Created in December, 2023 by
 [chifi - an open source software dynasty.](https://github.com/orgs/ChifiSource)
-by team
-[toolips](https://github.com/orgs/ChifiSource/teams/toolips)
 This software is MIT-licensed.
 ### AlgebraFrames
-`AlgebraFrames` provides a *dynamic* and extensible API for out-of-memory
-programming inside of Julia. This is facilitated through the `Algebra` and 
-`AlgebraFrame` types. This project provides the `Algebra`/`AlgebraVector`, as well
-as the `AlgebraFrame`.
+`AlgebraFrames` provides *structural algebra* to Julia in the form of the `Algebra` 
+and `AlgebraFrame` types. These are used to store transformations on calculated 
+values and preserve memory usage.
 ```julia
-# vector of length 15:
-my_data = Int64:15
+# default initializer
+alg = algebra(Int64, 25)
 
-actual_vector = [my_data]
+# use getindex?
+alg[1]
 
-println(sizeof(actual_vector)) # 15 * 8 bytes, 120 bytes
+alg = algebra(Int64, (5, 5))
 
-println(sizeof(my_data)) # 16 bytes
+alg[1:5, 1:1]
 
-# (reduction of 118 octets!)
+# or vect
+[alg]
 
-# custom initializer:
-my_data = Int64:5:e::Int64 -> 5
-# 'e' is the enumeration. if we do not want provide argument, we can generate 
-# the entire thing at once:
-my_data = Int16:5:() -> begin
-
+# set initializer
+alg = algebra(Int64, 25) do e::Int64
+    # each number will be the index
+    e
 end
 
-# modifying data:
-my_data:vector::Vector{Int64} -> begin
-    vector[1] += 1
+# perform algebra
+
+algebra!(alg) do vec::Vector{Int64}
+    vec[1] = 5
+    vec[3] = 15
 end
 
-[my_data]
+[alg]
+```
+```julia
 
-# multi-dimensional
-
-my_data = Int16:(50, 50)
-
-# peeking with `getindex`:
-my_data[1:15]
-
-# normalization example:
-
-my_data = Float64:(50, 50):e -> randn()
-
-using Statistics; std, mean
-
-my_data:mat -> begin
-    mu = mean(mat)
-    sigma = std(mat)
-    [(xbar - mu) / sigma for xbar in mat]
-end
-
-# AlgebraFrame:
-mydata = 15:["name", "number", "directory", "group"]
-
-# file reader example:
-
-frame = ["name", "age", "birth month", "state"]:() -> begin
-           names, age, bm, st = [], [], [], []
-           open("samplefile.txt", "r") do o::IOStream
-               while true
-                   if eof(o)
-                       break
-                   end
-                   line = readline(o)
-                   splits = split(line, "|")
-                   [push!(g, splits[e]) for (e, g) in enumerate([names, age, bm, st])]
-               end
-           end
-           hcat(names, age, bm, st)
-       end
 ```
 """
 module AlgebraFrames
 
 import Base: (:), getindex, setindex!, vect, Vector, show, length, size, pairs, reshape, eachcol, eachrow, filter!, filter
-import Base: deleteat!, merge!, merge, join, Dict, hcat, replace, vcat, Dict, Matrix, Array, Vector, display, size
+import Base: deleteat!, merge!, merge, join, Dict, hcat, replace, vcat, Dict, Matrix, Array, Vector, display, size, copy, names
 include("algebra.jl")
 include("frames.jl")
 
-export AlgebraFrame, Algebra, AlgebraVector, algebra, algebra!, generate, drop!, join!, Frame, FrameRow
+export AlgebraFrame, Algebra, AlgebraVector, algebra, algebra!, generate, drop!, join!, Frame, FrameRow, set_generator!
+export framerows
 end # module Algia

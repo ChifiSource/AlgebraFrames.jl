@@ -45,15 +45,16 @@ generate(af::AbstractAlgebraFrame) = begin
     end for col in 1:length(af.names)]
     newf = Frame(af.names, af.T, values)
     for transform in af.transformations
-        current_frame = newf[transform.col]
-        transform.f(current_frame)
+        transform.f(newf)
     end
     newf::Frame
 end
 
 names(af::AbstractAlgebraFrame) = af.names
 
-length(af::AbstractAlgebraFrame) = af.length + offsets
+size(af::AbstractAlgebraFrame) = (af.length, length(af.names))
+
+length(af::AbstractAlgebraFrame) = af.length + af.offsets
 
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
@@ -91,19 +92,10 @@ function getindex(af::AbstractAlgebraFrame, column::Int64, r::UnitRange{Int64} =
         if column in transform.col
             n = length(transform.col)
             position = findfirst(i -> i == column, transform.col)
-            filtered = if position != n
-                vcat(transform.col[1:position - 1], transform.col[position:end])
-            elseif position == 1
-                transform.col[position:end]
-            else
-                transform.col[position:position]
-            end
             curr_names = [af.names[e] for e in transform.col]
             curr_types = [af.T[e] for e in transform.col]
-            curr_vals = Vector{AbstractVector}([Vector{af.T[column_n]}([af.gen[column_n](e) for e in 1:af.length]) for column_n in filtered])
-            for column_n in filtered
-
-            end
+            curr_vals = Vector{AbstractVector}([Vector{af.T[column_n]}([af.gen[column_n](e) for e in 1:af.length]) for column_n in 1:length(af.names)])
+            deleteat!(curr_vals, position)
             insert!(curr_vals, position, init)
             n_frame = Frame(curr_names, curr_types, curr_vals)
             transform.f(n_frame)
@@ -134,7 +126,7 @@ function pairs(af::AbstractAlgebraFrame)
     generated = generate(af)
     [begin 
         names[e] => generated.values[e]
-    end for e in 1:af.length]
+    end for e in 1:length(af.names)]
 end
 
 Dict(af::AbstractAlgebraFrame) = Dict(pairs(af) ...)
@@ -159,6 +151,12 @@ mutable struct Frame <: AbstractDataFrame
     types::Vector{Type}
     values::Vector{Vector{<:Any}}
 end
+
+length(f::AbstractFrame) = length(f.values[1])
+
+size(f::AbstractFrame) = (length(f.values[1]), length(f.names))
+
+names(f::AbstractFrame) = f.names
 
 copy(f::Frame) = Frame(f.names, f.types, f.values)
 
@@ -212,6 +210,13 @@ getindex(f::AbstractFrame, name::String, observations::UnitRange{Int64} = 1:leng
     f.values[axis]
 end
 
+getindex(af::AbstractFrame, col::Any, at::Integer) = begin
+    if typeof(col) <: AbstractString
+        col = findfirst(n -> n == col, af.names)
+    end
+    getindex(af, col, at:at)[at]
+end
+
 function setindex!(f::AbstractFrame, ind::Integer, value::AbstractVector)
     n::Int64 = length(f.names)
     if ind > n
@@ -223,7 +228,7 @@ function setindex!(f::AbstractFrame, ind::Integer, value::AbstractVector)
     f::AbstractFrame
 end
 
-function setindex!(f::AbstractFrame, colname::String, value::AbstractVector)
+function setindex!(f::AbstractFrame, value::AbstractVector, colname::String)
     position = findfirst(x -> x == colname, names)
     if isnothing(position)
         # (adds a new column)
@@ -235,7 +240,7 @@ function setindex!(f::AbstractFrame, colname::String, value::AbstractVector)
 end
 
 
-function setindex!(f::AbstractFrame, position::Int64, row::Any ...)
+function setindex!(f::AbstractFrame, row::Tuple, position::Int64)
     row = FrameRow(f.names, [row ...])
     f[position] = row
 end
@@ -254,6 +259,31 @@ function setindex!(f::AbstractFrame, axis::Any, position::Int64, value::Any)
     f::AbstractFrame
 end
 
+function setindex!(f::AbstractDataFrame, to::Any, col::Any, n::Integer)
+    if typeof(col) <: AbstractString
+        col = findfirst(n -> n == col, f.names)
+    end
+    f.values[col][n] = to
+end
+
+function setindex!(f::AbstractDataFrame, to::AbstractVector, col::Any, n::UnitRange{Int64})
+    if typeof(col) <: AbstractString
+        col = findfirst(n -> n == col, f.names)
+    end
+    len = length(f.values[col])
+    finisher = maximum(n)
+    starter = minimum(n)
+    if minimum(n) > 1 && finisher != len
+        f.values[col] = vcat(f.values[col][1:to - 1], to, f.values[col][finisher + 1:len])
+    elseif finisher == len
+        f.values[col] = vcat(f.values[col][1:to - 1], to)
+    else
+        f.values[col] = vcat(to, f.values[col][finisher + 1:len])
+    end
+
+    f::AbstractDataFrame
+end
+
 function show(io::IO, frame::AbstractDataFrame)
     display(io, frame)
 end
@@ -266,13 +296,17 @@ function display(io::IO, mime::MIME{Symbol("text/html")}, frame::AbstractDataFra
     display(MIME"text/html"(), html_string(frame))
 end
 
-function html_string(frame::Frame)
+function html_string(frame::Frame, headlength::Int64 = 5, start::Integer = 1)
     header = "<table><tr>" * join("<th>$name</th>" for name in frame.names) * "</tr>"
-    for row in eachrow(frame)
+    for row in eachrow(frame)[start:headlength]
         header = header * "<tr>" * join("<td>$val</td>" for val in row) * "</tr>"
     end
     header * "</table>"
 end
+
+head(f::Frame, headlength::Int64 = 5)  = display("/text/html", html_string(f, headlength))
+
+tail(f::Frame, length::Int64) = display("/text/html", html_string(f, headlength, length(f) - length))
 
 function deleteat!(af::AlgebraFrame, row_n::Int64)
     del = f -> begin
@@ -467,16 +501,51 @@ function pairs(f::AbstractFrame)
 end
 
 function merge(f::AbstractFrame, af::AbstractFrame)
+    n = 0
+    cop = copy(f)
     for coln in 1:length(af.names)
         name = af.names[coln]
-        if ~(name in f.names)
+        position = findfirst(colname -> colname == name, f.names)
+        if isnothing(position)
             continue
         end
+        n += 1
+        cop.values[position] = vcat(cop.values[position], af.values[coln])
     end
+    if n > 0 && n != length(names)
+        lens = [length(col) for col in cop.values]
+        set_len = lens[1]
+        f = findfirst(val -> val != set_len, cop.values)
+        if ~(isnothing(f))
+            throw("cannot merge frames, as this will create unequal columns.")
+        end
+    end
+    return(cop)
 end
 
 function merge!(f::AbstractFrame, af::AbstractFrame)
-
+    n = 0
+    saved_values = copy(f.values)
+    for coln in 1:length(af.names)
+        name = af.names[coln]
+        position = findfirst(colname -> colname == name, f.names)
+        if isnothing(position)
+            continue
+        end
+        n += 1
+        f.values[position] = vcat(f.values[position], af.values[coln])
+    end
+    if n > 0 && n != length(names)
+        lens = [length(col) for col in f.values]
+        set_len = lens[1]
+        f = findfirst(val -> val != set_len, f.values)
+        if ~(isnothing(f))
+            f.values = saved_values
+            throw("cannot merge frames, as this will create unequal columns.")
+        end
+    end
+    saved_values = nothing
+    return(f)::AbstractFrame
 end
 
 # filtering

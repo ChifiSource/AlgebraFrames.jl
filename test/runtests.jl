@@ -28,7 +28,6 @@ using Test
             values[5] = 10
          end
          @test length(alg.pipe) > 1
-         @warn [alg]
          @test alg[1] == 25
          @test alg[5] == 10
          @test alg[1:2] == [25, 10]
@@ -59,7 +58,7 @@ using Test
          end
          @test insta_gen[1] == 1
          @test insta_gen[2] == 2
-         @test generate(alg) == [e for e in 1:10]
+         @test generate(insta_gen) == [e for e in 1:10]
          multidim = algebra(Int64, (5, 5)) do e
             e
          end
@@ -74,45 +73,117 @@ using Test
             e
          end
          @test size(multidim) == (5, 5)
-         deleteat!(insta_gen, 1)
-         @test length(insta_gen) == 9
-         @test length([insta_gen]) == 9
          cop = copy(insta_gen)
          @test cop.offsets == insta_gen.offsets
          @test cop.length == insta_gen.length
-         @test [cop] == insta_gen[cop]
-         # TODO hcat, vcat, reshape tests
+         @test [cop] == [insta_gen]
+         one = algebra(Int64, 5)
+         two = algebra(Int64, 5)
+         @test length(vcat(one, two)) == 10
+         @test typeof(hcat(one, two)).parameters[2] == 2
+         mydim = algebra(Int64, (2, 5))
+         @test size(mydim) == (2, 5)
+         r = reshape(mydim, 5, 2)
+         @test length(eachcol(r)) == 2
       end
    end
-   @testset "AlgebraFrame" verbose = true begin
+   @testset "Algebra Frames" verbose = true begin
+      af = algebra(15, "A" => Int64, "B" => String)
       @testset "constructors" begin
-
+         trans = AlgebraFrames.Transform(Vector{Int16}(), print)
+         @test typeof(trans) == AlgebraFrames.Transform
+         @test length(af) == 15
+         @test length(af.names) == 2
+         @test "A" in af.names
       end
       @testset "getters" begin
-
+         @test length(names(af)) == 2
+         @test length(af) == 15
+         @test size(af) == (15, 2)
       end
       @testset "algebra" begin
-
+         algebra!(af) do f::Frame
+            f["A", 1] = 5
+         end
+         @test af["A"][1] == 5
+         @test length(af["A"]) == length(af)
+         gen = generate(af)
+         @test gen["A"] == af["A"]
+         @test gen["B"] == af["B"]
+         @test typeof(gen["B"][1]) <: AbstractString
+      end
+      @testset "transformations" begin
+         algebra!(af) do f::Frame
+            f["A", 1:5] = [1, 2, 3, 4, 5]
+            f["B", 1] = "now"
+            @test f["A", 1] == 1
+            @test f["A", 1:5][1:5] == [1, 2, 3, 4, 5]
+         end
+         gen = generate(af)
+         @test gen["A"][1:5] == [1, 2, 3, 4, 5]
+         @test gen["A", 1:5][1:5] == [1, 2, 3, 4, 5]
+         @test gen["B"][1] == "now"
       end
       @testset "generation" begin
-
+         dct = Dict(af)
+         @test length(keys(dct)) == 2
+         @test length(first(dct)[2]) == 15
+         for x in framerows(af)
+            @test "B" in x.names
+            @test length(x.values) == 2
+            @test x["A"] in [1, 2, 3, 4, 5, 0]
+         end
+         for y in eachcol(af)
+            @test length(y) == af.length
+         end
+         NLEN = length(af.names)
+         for y in eachrow(af)
+            @test length(y) == NLEN
+         end
+         @test length(pairs(af)) == length(af.names)
+         gen = generate(af)
+         @test length(gen.names) == length(af.names)
+         @test length(gen.values[1]) == af.length
       end
       @testset "API" begin
-
-      end
-   end
-   @testset "Frame" verbose = true begin
-      @testset "frame and frame row constructors" begin
-
-      end
-      @testset "indexing" begin
-
-      end
-      @testset "getters" begin
-
-      end
-      @testset "API" begin
-
+         # Af api
+         af2 = algebra(5, "A" => Int64, "B" => String)
+         combided = merge(af, af2)
+         @test length(combided) == length(af) + length(af2)
+         @test length(generate(combided)) == length(af) + length(af2)
+         join!(af, "C" => Int64) do e
+            e
+         end
+         @test size(af) == (length(af), 3)
+         @test length(names(af)) == 3
+         @test length(names(combided)) == 3
+         @test "C" in names(af)
+         drop!(af, "A")
+         @test length(names(af)) == 2
+         @test ~("A" in names(af))
+         gen = generate(af)
+         @test ~("A" in names(gen))
+         @test length(names(gen)) == 2
+         @test "C" in names(gen)
+         @test "B" in names(gen)
+         newcol = algebra(combided.length, "W" => Float64, "Y" => Int64)
+         joined = join(combided, newcol)
+         for x in ("W", "B", "C", "Y")
+            @test x in names(joined)
+            @test ~(x in names(combided))
+         end
+         join!(combided, newcol)
+         for x in ("W", "B", "C", "Y")
+            @test x in names(combided)
+         end
+         # f api
+         # (merge, size, filter, length, join, join!)
+         @test size(gen) == size(af)
+         @test gen["B", 1:3] == ["now", "null", "null"]
+         # replace!
+         # cast!
+         # filter!
+         # frame rows
       end
    end
    @testset "full test" begin

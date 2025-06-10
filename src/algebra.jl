@@ -16,7 +16,22 @@ Consistencies
 `AbstractAlgebra` is an algebraic type that holds data outside of memory. These types can be generated using 
 `AlgebraFrames.generate` or `generate`, they also have a `length` and a pipeline of functions stored within them. 
 `offsets` is used to measure any changes in dimensionality that come from certain operations -- such as using 
-the `deleteat!` function directly on the `Algebra` itself.
+the `deleteat!` function directly on the `Algebra` itself. Also note the following `method` bindings:
+```julia
+length(a::AbstractAlgebra)
+size(a::AbstractAlgebra)
+copy(alg::AbstractAlgebra)
+reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
+set_generator!(f::Function, alg::AbstractAlgebra)
+getindex(alg::AbstractAlgebra, dim::Int64)
+getindex(alg::AbstractAlgebra, dim::Int64, dim2::Int64)
+getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:1)
+vect(alg::AbstractAlgebra)
+eachrow(alg::AbstractAlgebra)
+eachcol(alg::AbstractAlgebra)
+vcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
+hcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
+```
 """
 abstract type AbstractAlgebra end
 
@@ -37,7 +52,6 @@ mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     function Algebra{T}(algebra::Algebra{<:Any, <:Any}) where T <: Any
         new{T, typeof(algebra).parameters[2]}(algebra.pipe, algebra.length, 0 => 0)
     end
-
 end
 
 function copy(alg::AbstractAlgebra)
@@ -72,10 +86,14 @@ function show(io::IO, algebra::Algebra{<:Any, <:Any})
     println(io, "$T $(rows)x$cols")
 end
 
-function reshape(alg::AbstractAlgebra, news::Tuple{Int64, Int64})
-    current_rows = typeof(alg).parameters[2]
-    current_len = length(alg)
-
+function reshape(alg::Algebra{T, N}, new_length::Int64, new_width::Int64) where {T, N}
+	# Ensure reshaping doesn't change total number of elements
+	total_old = alg.length * N
+	total_new = new_length * new_width
+	if total_old != total_new
+		throw(ArgumentError("Cannot reshape algebra of size ($alg.length, $N) to ($new_length, $new_width)"))
+	end
+	return Algebra{T, new_width}(alg.pipe, new_length, alg.offsets)
 end
 
 algebra_initializer(T::Type{<:Integer}) = x -> T(0)
@@ -145,16 +163,23 @@ function generate(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{In
     end
     col_length = Int64(round(N_COLS / alg.length))
     generated = if length(params) > 1
-        vals = (vcat(
-            fill(0, minimum(row) - 1),
-            [gen((dim - 1) + colrange * alg.length + 1) for dim in row],
-            fill(0, length(alg) - maximum(row))
-        ) for colrange in 0:N_COLS)
-        hcat(vals ...)
+        if N_COLS > 1
+            vals = (vcat(
+                fill(0, minimum(row) - 1),
+                [gen((dim - 1) + colrange * alg.length + 1) for dim in row],
+                fill(0, length(alg) - maximum(row))
+            ) for colrange in 0:N_COLS)
+            hcat(vals ...)
+        else
+            vcat(
+                fill(0, minimum(row) - 1),
+                [gen(dim) for dim in row],
+                fill(0, length(alg) - maximum(row)))
+        end
     else
         gen()
     end
-    generated
+    generated::AbstractArray
 end
 
 getindex(alg::AbstractAlgebra, dim::Int64) = begin
@@ -193,7 +218,6 @@ function vect(alg::AbstractAlgebra)
     generated::AbstractArray
 end
 
-
 function eachrow(alg::AbstractAlgebra)
     eachrow([alg])
 end
@@ -215,8 +239,7 @@ function vcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
             throw("future bounds error")
         end
         total_len += alg.length
-        offsets[1] += alg.offsets[1]
-        offsets[2] += alg.offsets[2]
+        offsets = alg.offsets[1] + offsets[1] => alg.offsets[2] + offsets[2]
         push!(origin.pipe, alg.pipe ...)
     end
     Algebra{T, dim}(pipe, total_len, offsets)::Algebra{T, dim}
@@ -232,8 +255,7 @@ function hcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
     for alg in algebra
         push!(pipe, alg.pipe ...)
         dim += 1
-        offsets[1] += alg.offsets[1]
-        offsets[2] += alg.offsets[2]
+        offsets = alg.offsets[1] + offsets[1] => alg.offsets[2] + offsets[2]
     end
     Algebra{T, dim}(pipe, total_len, offsets)
 end
