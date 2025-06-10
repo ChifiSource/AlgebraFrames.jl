@@ -145,6 +145,7 @@ using Test
          @test length(gen.names) == length(af.names)
          @test length(gen.values[1]) == af.length
       end
+      af = algebra(15, "A" => Int64, "B" => String)
       @testset "API" begin
          # Af api
          af2 = algebra(5, "A" => Int64, "B" => String)
@@ -162,13 +163,14 @@ using Test
          @test length(names(af)) == 2
          @test ~("A" in names(af))
          gen = generate(af)
+         @test "C" in names(gen)
          @test ~("A" in names(gen))
          @test length(names(gen)) == 2
-         @test "C" in names(gen)
          @test "B" in names(gen)
+         gen = generate(af2)
          newcol = algebra(combided.length, "W" => Float64, "Y" => Int64)
          joined = join(combided, newcol)
-         for x in ("W", "B", "C", "Y")
+         for x in ("W", "Y")
             @test x in names(joined)
             @test ~(x in names(combided))
          end
@@ -178,19 +180,19 @@ using Test
          end
          # f api
          # (merge, size, length, join, join!, names, etc...)
-         @test size(gen) == size(af)
-         @test gen["B", 1:3] == ["now", "null", "null"]
-         @test length(gen) == length(af)
+         @test size(gen) == size(af2)
+         @test gen["B", 1:3][1:3] == ["null", "null", "null"]
+         @test length(gen) == length(af2)
          @test length(names(gen)) == 2
          # replace!
-         af = algebra(20, "A" => Int64, "B" => Int64)
+         af = algebra(20, "A" => Int64, "B" => String)
          algebra!(af) do f::Frame
-            replace!(af, "null", "n")
+            replace!(f, "null", "n")
          end
-         @test f["B"][2] == "n"
+         @test af["B"][2] == "n"
          join!(af, "C" => Int64)
          algebra!(af) do f::Frame
-            replace!(af, "A", 0, 5)
+            replace!(f, "A", 0, 5)
          end
          gen = generate(af)
          @test ~(0 in gen["A"])

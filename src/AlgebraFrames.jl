@@ -43,6 +43,7 @@ module AlgebraFrames
 
 import Base: (:), getindex, setindex!, vect, Vector, show, length, size, pairs, reshape, eachcol, eachrow, filter!, filter
 import Base: deleteat!, merge!, merge, join, Dict, hcat, replace, vcat, Dict, Matrix, Array, Vector, display, size, copy, names
+import Base: replace!
 include("algebra.jl")
 include("frames.jl")
 

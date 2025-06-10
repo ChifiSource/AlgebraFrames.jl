@@ -404,7 +404,8 @@ merge(af::AlgebraFrame, af2::AlgebraFrame) = begin
     cop = copy(af)
     cop.length += af2.length
     cop.offsets += af2.offsets
-    push!(cop.transformations, af2.transformations)
+    push!(cop.transformations, af2.transformations ...)
+    cop
 end
 
 merge!(af::AlgebraFrame, af2::AlgebraFrame) = begin
@@ -568,23 +569,24 @@ end
 # replace
 function replace!(af::AbstractDataFrame, value::Any, with::Any)
     for column in 1:length(af.values)
-        replace!(af.values[column], value, with)
+        af.values[column] = replace!(af.values[column], value, with)
     end
 end
 
-function replace!(a::AbstractArray, value::Any, with::Any)
+function replace!(a::AbstractArray, rep_value::Any, with::Any)
     for value in 1:length(a)
-        if a[value] == with
+        if a[value] == rep_value
             a[value] = with
         end
     end
+    a
 end
 
 function replace!(af::AbstractDataFrame, col::Any, value::Any, with::Any)
     if typeof(col) <: AbstractString
         col = findfirst(val -> val == col, af.names)
     end
-    replace!(af.values[col], value, with)
+    af.values[col] = replace!(af.values[col], value, with)
 end
 
 function cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
