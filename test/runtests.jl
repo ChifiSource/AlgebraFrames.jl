@@ -197,13 +197,41 @@ using Test
          gen = generate(af)
          @test ~(0 in gen["A"])
          @test 0 in gen["C"]
+         mergef = merge(generate(af), generate(af))
+         @test length(mergef) == length(af) * 2
          # cast!
+         cast!(af, "A", Float64)
+         @test Float64 in af.T
+         @test typeof(af["A"]) == Vector{Float64}
+         testgen = generate(af)
+         cast!(testgen, "A", Float64)
+         @test typeof(testgen["A", 1]) == Float64
          # filter!
+         newf = algebra(5, "A" => Int64, "B" => String)
+         set_generator!(newf, "A") do e
+            [5, 6, 22, 33, 8][e]
+         end
+         algebra!(newf) do frame::Frame
+            filter!(frame) do row::FrameRow
+               row["A"] > 22
+            end
+         end
+         @test length(generate(newf)) < 5
+         found = findfirst(x -> x < 22, generate(newf)["A"])
+         @test isnothing(found)
          # drop! + deleteat!
+         drop!(gen, "A")
+         @test ~("A" in names(gen))
          # frame rows/pairs/eachcol/eachrow
+         for row in framerows(gen)
+            @test "C" in names(row)
+            break
+         end
+         @test length(eachcol(gen)) == 2
+         @test length(pairs(gen)) == 2
+         @test "C" in keys(Dict(pairs(gen) ...))
+         @test length(eachrow(gen)) == length(gen)
+         @test length(gen) == length(af)
       end
-   end
-   @testset "full test" begin
-
    end
 end

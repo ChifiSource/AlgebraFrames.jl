@@ -48,5 +48,5 @@ include("algebra.jl")
 include("frames.jl")
 
 export AlgebraFrame, Algebra, AlgebraVector, algebra, algebra!, generate, drop!, join!, Frame, FrameRow, set_generator!
-export framerows
+export framerows, cast, cast!
 end # module Algia
