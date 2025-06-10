@@ -469,16 +469,51 @@ function pairs(f::AbstractFrame)
 end
 
 function merge(f::AbstractFrame, af::AbstractFrame)
+    n = 0
+    cop = copy(f)
     for coln in 1:length(af.names)
         name = af.names[coln]
-        if ~(name in f.names)
+        position = findfirst(colname -> colname == name, f.names)
+        if isnothing(position)
             continue
         end
+        n += 1
+        cop.values[position] = vcat(cop.values[position], af.values[coln])
     end
+    if n > 0 && n != length(names)
+        lens = [length(col) for col in cop.values]
+        set_len = lens[1]
+        f = findfirst(val -> val != set_len, cop.values)
+        if ~(isnothing(f))
+            throw("cannot merge frames, as this will create unequal columns.")
+        end
+    end
+    return(cop)
 end
 
 function merge!(f::AbstractFrame, af::AbstractFrame)
-
+    n = 0
+    saved_values = copy(f.values)
+    for coln in 1:length(af.names)
+        name = af.names[coln]
+        position = findfirst(colname -> colname == name, f.names)
+        if isnothing(position)
+            continue
+        end
+        n += 1
+        f.values[position] = vcat(f.values[position], af.values[coln])
+    end
+    if n > 0 && n != length(names)
+        lens = [length(col) for col in f.values]
+        set_len = lens[1]
+        f = findfirst(val -> val != set_len, f.values)
+        if ~(isnothing(f))
+            f.values = saved_values
+            throw("cannot merge frames, as this will create unequal columns.")
+        end
+    end
+    saved_values = nothing
+    return(f)::AbstractFrame
 end
 
 # filtering
