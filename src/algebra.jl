@@ -29,8 +29,6 @@ getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:
 vect(alg::AbstractAlgebra)
 eachrow(alg::AbstractAlgebra)
 eachcol(alg::AbstractAlgebra)
-vcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
-hcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
 ```
 """
 abstract type AbstractAlgebra end
@@ -39,6 +37,71 @@ length(a::AbstractAlgebra) = (a.length::Int64 + a.offsets[1])
 
 size(a::AbstractAlgebra) = (a.length + a.offsets[1], typeof(a).parameters[2] + a.offsets[2])::Tuple{Int64, Int64}
 
+"""
+```julia
+mutable struct Algebra{T <: Any, N <: Any} <: Algebra
+```
+- `pipe`**::Vector{Function}**
+- `length`**::Int64**
+- `offsets`**::Pair{Int64, Int64}**
+
+`Algebra` is a structural algebra type that represent's `Base`'s `Array` type. This 
+also includes an aliased `AlgebraVector` type. `Algebra` is created using *specific* 
+methods of the `algebra` function.
+```julia
+algebra(T::Type{<:Any}, n::Int64, f::Function = algebra_initializer(T))
+algebra(f::Function, T::Type{<:Any}, dim::Tuple)
+algebra(f::Function, T::Type{<:Any} = methods(f)[1].sig.parameters[1], dim::Int64 = 1)
+algebra(f::Function, T::Type{<:Any} = methods(f)[1].sig.parameters[1], dim::Int64 = 1)
+algebra(vec::AbstractArray)
+```
+This allows us to create `algebra` of any length *with or without* an initializer, as well 
+as allowing us to create *algebraic copies* of arrays using the `AbstractArray` dispatch.
+```julia
+alg = algebra(Int64, 20)
+alg = algebra(Int64, 5) do
+    [1, 2, 3, 4, 5]
+end
+alg2 = algebra(Int64, 5) do e
+    e
+end
+
+alg3 = algebra([1, 2, 3, 4, 5])
+
+[alg] == [alg2] == alg3
+```
+From here, we use `algebra!` to add transformations, and index our `Algebra` or vectorize
+ to generate.
+```julia
+alg2 = algebra(Int64, 5) do e
+    e
+end
+
+algebra!(alg2) do vec::Vector{Int64}
+    vec[1] = 15
+end
+
+alg[1] == 15
+```
+`Algebra` is primarily bound through `Base` methods. Here is a comprehensive list:
+```julia
+length(a::AbstractAlgebra)
+size(a::AbstractAlgebra)
+copy(alg::AbstractAlgebra)
+show(io::IO, algebra::Algebra{<:Any, <:Any})
+reshape(alg::Algebra{T, N}, new_length::Int64, new_width::Int64)
+deleteat!(alg::AbstractAlgebra, n::Int64)
+getindex(alg::AbstractAlgebra, dim::Int64)
+getindex(alg::AbstractAlgebra, dim::Int64, dim2::Int64)
+getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:1)
+vect(alg::AbstractAlgebra)
+eachrow(alg::AbstractAlgebra)
+eachcol(alg::AbstractAlgebra)
+vcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
+hcat(origin::AbstractAlgebra, algebra::AbstractAlgebra ...)
+```
+- See also: `set_generator!`, `AlgebraFrame`, `AlgebraFrames`, `algebra`, `algebra!`
+"""
 mutable struct Algebra{T <: Any, N <: Any} <: AbstractAlgebra
     pipe::Vector{Function}
     length::Int64
@@ -96,6 +159,22 @@ function reshape(alg::Algebra{T, N}, new_length::Int64, new_width::Int64) where 
 	return Algebra{T, new_width}(alg.pipe, new_length, alg.offsets)
 end
 
+"""
+```julia
+algebra_initializer(::Type) -> ::Function
+```
+Creates a *generator* for common data-types, usually called as a default for a provided type.
+```julia
+algebra_initializer(T::Type{<:Integer}) = x -> T(0)
+algebra_initializer(T::Type{Int64}) = x -> 0
+algebra_initializer(T::Type{<:AbstractFloat}) = x -> T(0.0)
+algebra_initializer(T::Type{Float64}) = x -> 0.0
+algebra_initializer(T::Type{String}) = x -> "null"
+```
+- See also: `set_generator!`, `Algebra`, `AlgebraFrame`, `drop!`, `algebra`, `algebra!`
+"""
+function algebra_initializer end
+
 algebra_initializer(T::Type{<:Integer}) = x -> T(0)
 algebra_initializer(T::Type{Int64}) = x -> 0
 algebra_initializer(T::Type{<:AbstractFloat}) = x -> T(0.0)
@@ -109,9 +188,59 @@ deleteat!(alg::AbstractAlgebra, n::Int64) = begin
     alg.offsets = alg.offsets[1] - 1 => alg.offsets[2]
 end
 
+"""
+```julia
+set_generator!(f::Function, alg::AbstractAlgebra, args ...) -> ::Nothing
+```
+Sets the *generator*, or the first function that is called, of a given algebra. Generators for `Algebra` 
+(as opposed to an `AbstractAlgebraFrame`,) can take either the enumeration, `Int64`, or nothing as an argument. In 
+the case of nothing, we will need to generate the entire array in a single function call and return it. When providing a generator 
+for an `AlgebraFrame`'s column, our generator will *always* take an `Int64`.
+```julia
+# algebra
+set_generator!(f::Function, alg::AbstractAlgebra)
+# algebraframe
+set_generator!(f::Function, af::AlgebraFrame, col::String)
+set_generator!(f::Function, af::AlgebraFrame, col::Integer)
+```
+- See also: `algebra_initializer`, `Algebra`, `algebra!`, `algebra`
+"""
+function set_generator! end
+
 set_generator!(f::Function, alg::AbstractAlgebra) = alg.pipe[1] = f
 
 # creation
+"""
+```julia
+algebra(args ...) -> ::Algebra{<:Any, <:Any}
+```
+Creates both the `Algebra` and `AlgebraFrame` types using different bindings. 
+Relatively straightforward to use; for `Algebra`, provide a `Function` or don't.
+```julia
+alg = algebra(Int64, 5)
+alg = algebra(Int64, (5, 5))
+alg = algebra(Int64, (5, 2)) do e
+    e - 1
+end
+```
+For an `AlgebraFrame`, provide a `length` and a type for each column:
+```julia
+af = algebra(20, "A" => Float64, "B" => Int64, "C" => String)
+```
+
+```julia
+# algebra
+algebra(T::Type{<:Any}, n::Int64, f::Function = algebra_initializer(T))
+algebra(vec::AbstractArray)
+algebra(f::Function, T::Type{<:Any}, dim::Tuple
+algebra(f::Function, T::Type{<:Any} = methods(f)[1].sig.parameters[1], dim::Int64 = 1)
+# algebraframe
+algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...)
+```
+- See also: `algebra!`, `set_generator!`, `AlgebraFrame`, `Algebra`, `AbstractAlgebra`
+"""
+function algebra end
+
 algebra(T::Type{<:Any}, n::Int64, f::Function = algebra_initializer(T)) = Algebra{T}(f, n, 1)::Algebra{T, 1}
 
 function algebra(T::Type{<:Any}, dim::Tuple, f::Function = algebra_initializer(T))
@@ -130,7 +259,53 @@ end
 
 algebra(vec::Vector{<:Any}) = Algebra(vec)
 
+"""
+```julia
+algebra!(f::Function, alg::AbstractAlgebra, args ...) -> ::Nothing
+```
+Adds `f` to `alg`'s set of transformations.
+```julia
+# algebra
+algebra!(f::Function, alg::AbstractAlgebra)
+# algebraframe
+algebra!(f::Function, af::AlgebraFrame)
+algebra!(f::Function, af::AlgebraFrame, name::Int64 ...)
+algebra!(f::Function, af::AlgebraFrame, names::String ...) 
+algebra!(f::Function, af::AlgebraFrame, names::UnitRange{Int64})
+```
+- See also: `algebra`, `Frame`, `AlgebraFrame`, `Algebra`, `AlgebraFrames`
+"""
+function algebra! end
+
 algebra!(f::Function, alg::AbstractAlgebra) = push!(alg.pipe, f)
+
+"""
+```julia
+generate(alg::AbstractAlgebra) -> ::Any
+```
+Generates an `AbstractAlgebra` into its equivalent type. Note that `generate` 
+**works differently** between `Algebra` and the `AlgebraFrame`. For `Algebra`, 
+`generate` will only build the base shape of the `Array` using the initializer. 
+Instead, for an `Algebra` use `vect`. When we call `generate` on an `AlgebraFrame`, 
+however, we will get a fully generated and transformed `Frame` in return.
+```julia
+alg = algebra(Int64, 15)
+af = algebra(15, "one" => Int64)
+alg_gen, af_gen = [alg], generate(af)
+```
+- Note that we could also use `Dict(af)`, `pairs(af)`, `framerows(af)`, `eachcol(af)`, 
+or `eachrow(af)` to generate our `AlgebraFrame`.
+```julia
+# algebra
+generate(alg::Algebra{<:Any, <:Any})
+generate(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:1)
+
+# algebra frames
+generate(af::AbstractAlgebraFrame)
+```
+- See also: `Algebra`, `algebra!`, `set_generator!`, `AlgebraFrame`, `Frame`, `FrameRow`
+"""
+function generate end
 
 function generate(alg::Algebra{<:Any, <:Any})
     gen = first(alg.pipe)
@@ -187,7 +362,6 @@ getindex(alg::AbstractAlgebra, dim::Int64) = begin
 end
 
 getindex(alg::AbstractAlgebra, dim::Int64, dim2::Int64) = getindex(alg, dim:dim, dim2:dim2)[dim, dim2]
-
 
 function getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:1)
     generated = generate(alg, row, col)
