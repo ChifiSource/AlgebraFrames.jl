@@ -50,6 +50,10 @@ end
 
 result = generate(f)
 ```
+##### provides
+```julia
+
+```
 """
 module AlgebraFrames
 
@@ -60,5 +64,5 @@ include("algebra.jl")
 include("frames.jl")
 
 export AlgebraFrame, Algebra, AlgebraVector, algebra, algebra!, generate, drop!, join!, Frame, FrameRow, set_generator!
-export framerows, cast, cast!, head, tail
+export framerows, cast!, head, tail
 end # module Algia

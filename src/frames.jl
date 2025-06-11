@@ -310,13 +310,81 @@ values::Vector{Any}
 """
 abstract type AbstractFrame end
 
+"""
+```julia
+abstract AbstractDataFrame <: AbstractFrame
+```
+An `AbstractDataFrame` is an `AbstractFrame` that is designed to hold 
+multiple observations.
+```julia
+# consistencies
+names::Vector{String}
+types::Vector{Type}
+values::Vector{Vector{<:Any}}
+```
+- See also: `AbstractFrame`, `FrameRow`, `framerows`, `AlgebraFrame`, `Algebra`
+"""
+abstract type AbstractDataFrame <: AbstractFrame end
+
+"""
+```julia
+mutable struct FrameRow <: AbstractFrame
+```
+- `names`**Vector{String}**
+- `values`**Vector{Any}**
+
+A `FrameRow` is an individual row of a `Frame`. Like a `Frame`, the `FrameRow` 
+is indexable by name. We can access all frame rows of a given `Frame` or 
+`AlgebraFrame` by using the `framerows` function.
+```julia
+f::Frame = generate(algebra(20, "col" => Int64))
+for row in framerows(f)
+    if row["col"] == 0
+        println("holding default fill value")
+    end
+end
+```
+```julia
+FrameRow(::Vector{String}, ::Vector{Any})
+```
+- See also: `Frame`, `framerows`, `eachcol`, `eachrow`, `loop_rows`, `tail`
+"""
 mutable struct FrameRow <: AbstractFrame
     names::Vector{String}
     values::Vector{Any}
 end
 
-abstract type AbstractDataFrame <: AbstractFrame end
+"""
+```julia
+mutable struct Frame <: AbstractFrame
+```
+- `names`**::Vector{String}**
+- `types`**::Vector{Type}**
+- `values`**::Vector{Vector{<:Any}}**
 
+The `Frame` is the generated equivalent of the `AlgebraFrame`. This structure is 
+indexable by names, integers, and ranges just like the `AlgebraFrame`. We create a 
+`Frame` by calling `generate` on an `AlgebraFrame`. The `Frame` will also be provided to 
+`algebra!` transformation functions as its only argument when adding transformations 
+to an `AlgebraFrame`.
+```julia
+Frame(::Vector{String}, ::Vector{Type}, ::Vector{Vector{<:Any}})
+```
+```julia
+af = algebra(10, "one" => Int64, "two" => String, "three" => Float64)
+
+algebra!(af) do f::Frame
+    f["one", 1] = 5
+end
+
+af["one"]
+
+gen::Frame = generate(af)
+
+filter!(row -> row["one"] != 5, gen)
+```
+- See also: `AbstractDataFrame`, `AbstractFrame`, `AlgebraFrame`, `algebra!`, `framerows`, `head`
+"""
 mutable struct Frame <: AbstractDataFrame
     names::Vector{String}
     types::Vector{Type}
@@ -331,6 +399,21 @@ names(f::AbstractFrame) = f.names
 
 copy(f::Frame) = Frame(f.names, f.types, f.values)
 
+"""
+```julia
+loop_rows(f::Function, af::AbstractDataFrame) -> ::Nothing
+```
+Iteratively loops the `FrameRows` of a given `AbstractDataFrame`, calling `f` on 
+each row as it loops. This is a faster and more efficient way of looping framerows with 
+`framerows`.
+```julia
+f = generate(algebra(20, "A" => String))
+loop_rows(f) do row
+    @info row["A"]
+end
+```
+- See also: `framerows`, `Frame`, `AlgebraFrame`, `algebra`, `generate`
+"""
 function loop_rows(f::Function, af::AbstractDataFrame)
     row = FrameRow(af.names, [])
     n = length(af.names)
@@ -475,6 +558,34 @@ function html_string(frame::Frame, headlength::Int64 = 5, start::Integer = 1)
     header * "</table>"
 end
 
+"""
+```julia
+head(args ...) -> ::Nothing
+```
+Displays the `head`, or first `n` values in an `AbstractDataFrame` or `AbstractAlgebraFrame`. 
+The inverse of `tail`.
+```julia
+head(af::AbstractAlgebraFrame, headlength::Int64 = 5)
+head(f::Frame, headlength::Int64 = 5)
+```
+- See also: `tail`, `Frame`, `FrameRow`, `algebra!`, `AlgebraFrames`, `set_generator!`
+"""
+function head end
+
+"""
+```julia
+tail(args ...) -> ::Nothing
+```
+Displays the `tail`, or last `n` values in an `AbstractDataFrame` or `AbstractAlgebraFrame`. 
+The inverse of `head`.
+```julia
+tail(af::AbstractAlgebraFrame, len::Int64 = 5)
+tail(f::Frame, len::Int64 = 5)
+```
+- See also: `head`, `Frame`, `FrameRow`, `algebra!`, `cast!`, `set_generator!`
+"""
+function tail end
+
 head(af::AbstractAlgebraFrame, headlength::Int64 = 5) = head(generate(af), headlength)
 
 tail(af::AbstractAlgebraFrame, len::Int64 = 5) = tail(generate(af), length(f) = len)
@@ -500,6 +611,24 @@ function deleteat!(af::AlgebraFrame, row_n::UnitRange{Int64})
 	af.offsets -= 1
 	af::AlgebraFrame
 end
+
+"""
+```julia
+drop!(af::Any, ...) -> ::Any
+```
+Drops a **column** from an `AlgebraFrame` or `Frame` by name or axis. 
+For removing observations, use `deleteat!`
+```julia
+drop!(af::AlgebraFrame, axis::Int64)
+drop!(af::AlgebraFrame, col::String)
+```
+```julia
+drop!(f::AbstractFrame, col::Int64)
+drop!(f::AbstractFrame, col::AbstractString)
+```
+- See also: 
+"""
+function drop! end
 
 function drop!(af::AlgebraFrame, axis::Int64)
     deleteat!(af.names, axis)
@@ -760,6 +889,25 @@ function replace!(af::AbstractDataFrame, col::Any, value::Any, with::Any)
     end
     af.values[col] = replace!(af.values[col], value, with)
 end
+
+"""
+```julia
+cast!(...) -> ::Nothing
+```
+`cast!` is used on an `AbstractDataFrame` or an `AbstractAlgebraFrame` to *cast* columns 
+to new types.
+```julia
+cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
+cast!(af::AbstractAlgebraFrame, col::Any, to::Type{<:Any})
+cast!(f::Function, af::AbstractAlgebraFrame, col::String, to::Type)
+```
+```julia
+cast!(af::AbstractDataFrame, col::Int64, to::Type)
+cast!(af::AbstractDataFrame, col::String, to::Type)
+```
+- See also: `generate`, `deleteat!`, `merge!`, `replace!`, `algebra`, `algebra!`
+"""
+function cast! end
 
 function cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
     af.T[col] = to
