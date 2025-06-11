@@ -208,7 +208,7 @@ algebra!(f::Function, af::AbstractAlgebraFrame, name::Int64 ...) = begin
     push!(af.transformations, Transform([name ...], f))
 end
 
-algebra!(f::Function, af::AbstractAlgebraAlgebraFrame, names::String ...) = begin
+algebra!(f::Function, af::AbstractAlgebraFrame, names::String ...) = begin
     positions = [findfirst(n -> n == name, af.names) for name in names]
     algebra!(f, af, positions ...)
     nothing
@@ -554,6 +554,14 @@ function display(io::IO, frame::AbstractDataFrame)
     display(io, MIME"text/html"(), frame)
 end
 
+function display(frame::AbstractDataFrame)
+    println(join((name for name in frame.names), " | "))
+    println(join((name for name in frame.types), " | "))
+    for r in framerows(frame)[1:5]
+        println(join((string(val) for val in r.values), " | "))
+    end
+end
+
 function display(io::IO, mime::MIME{Symbol("text/html")}, frame::AbstractDataFrame)
     display(MIME"text/html"(), html_string(frame))
 end
@@ -596,7 +604,7 @@ function tail end
 
 head(af::AbstractAlgebraFrame, headlength::Int64 = 5) = head(generate(af), headlength)
 
-tail(af::AbstractAlgebraFrame, len::Int64 = 5) = tail(generate(af), length(f) = len)
+tail(af::AbstractAlgebraFrame, len::Int64 = 5) = tail(generate(af), len)
 
 head(f::Frame, headlength::Int64 = 5)  = display("/text/html", html_string(f, headlength))
 
