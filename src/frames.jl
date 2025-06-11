@@ -75,6 +75,22 @@ mutable struct Transform <: AbstractTransformation
     f::Function
 end
 
+function get_axis(af::Any, col::AbstractString)
+    col = findfirst(val -> val == col, af.names)
+    if isnothing(col)
+        throw(KeyError(col))
+    end
+    return(col)
+end
+
+get_axis(af::Any, n::Integer) = begin
+    l = length(af.names)
+    if n < 1 || n > l
+        throw(BoundsError(af.names, n))
+    end
+    n
+end
+
 """
 ```julia
 mutable struct AlgebraFrame{T <: Any}
@@ -465,9 +481,7 @@ getindex(f::AbstractFrame, name::String, observations::UnitRange{Int64} = 1:leng
 end
 
 getindex(af::AbstractFrame, col::Any, at::Integer) = begin
-    if typeof(col) <: AbstractString
-        col = findfirst(n -> n == col, af.names)
-    end
+    col = get_axis(af, col)
     getindex(af, col, at:at)[at]
 end
 
@@ -506,24 +520,18 @@ function setindex!(f::AbstractFrame, position::Int64, row::FrameRow)
 end
 
 function setindex!(f::AbstractFrame, axis::Any, position::Int64, value::Any)
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     f.values[axis][position] = value
     f::AbstractFrame
 end
 
 function setindex!(f::AbstractDataFrame, to::Any, col::Any, n::Integer)
-    if typeof(col) <: AbstractString
-        col = findfirst(n -> n == col, f.names)
-    end
+    col = get_axis(f, col)
     f.values[col][n] = to
 end
 
 function setindex!(f::AbstractDataFrame, to::AbstractVector, col::Any, n::UnitRange{Int64})
-    if typeof(col) <: AbstractString
-        col = findfirst(n -> n == col, f.names)
-    end
+    col = get_axis(f, col)
     len = length(f.values[col])
     finisher = maximum(n)
     starter = minimum(n)
@@ -646,9 +654,7 @@ function drop!(af::AlgebraFrame, col::String)
 end
 
 join!(f::Function, af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, af.names)
-    end
+    axis = get_axis(af, axis)
     if axis < length(af.names)
         af.names = vcat(af.names[1:axis], col[1], af.names[axis + 1:end])
         af.gen = vcat(af.gen[1:axis], f, af.gen[axis + 1:end])
@@ -666,9 +672,7 @@ join!(af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::Any = length(
 end
 
 join!(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame; axis::Any = length(af.names)) = begin
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, af.names)
-    end
+    axis = get_axis(af, axis)
     if axis < length(af.names)
         af.names = vcat(af.names[1:axis], af2.names, af.names[axis + 1:end])
         af.gen = vcat(af.gen[1:axis], af2.gen, af.gen[axis + 1:end])
@@ -681,9 +685,7 @@ join!(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame; axis::Any = length(af
 end
 
 join(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame; axis::Any = length(af.names)) = begin
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+    axis = get_axis(af, axis)
     if af.length != af2.length
         throw("future error here")
     end
@@ -720,9 +722,7 @@ end
 
 
 function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::AbstractVector; axis::Any = length(f.names))
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     insert!(f.names, axis - 1, colname)
     insert!(f.types, axis - 1, T)
     insert!(f.values, axis - 1, value)
@@ -731,9 +731,7 @@ end
 
 function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
     n = length(f.names)
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     if axis < n
         f.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
         f.values = vcat(f.values[1:axis], f2.values, f.values[axis + 1:end])
@@ -747,9 +745,7 @@ function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
 end
 
 function join(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     newf = copy(f)
     if axis < n
         newf.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
@@ -884,9 +880,7 @@ function replace!(a::AbstractArray, rep_value::Any, with::Any)
 end
 
 function replace!(af::AbstractDataFrame, col::Any, value::Any, with::Any)
-    if typeof(col) <: AbstractString
-        col = findfirst(val -> val == col, af.names)
-    end
+    col = get_axis(af, col)
     af.values[col] = replace!(af.values[col], value, with)
 end
 
@@ -940,15 +934,29 @@ function cast(a::AbstractArray, to::Type{<:AbstractString})
     [to(string(val)) for val in a]
 end
 
+struct CastError
+    col::String
+    from::Type
+    to::Type
+end
+
+showerror(c::CastError) = begin
+    """Failed to cast column $(col) from $from to $to"""
+end
+
 function cast!(af::AbstractDataFrame, col::Int64, to::Type)
+    try
+        af.values[col] = cast(af.values[col], to)
+    catch
+        throw(CastError(af.names[col], af.types[col], to))
+    end
     af.types[col] = to
-    af.values[col] = cast(af.values[col], to)
 end
 
 function cast!(af::AbstractDataFrame, col::String, to::Type)
     f = findfirst(name -> name == col, af.names)
     if isnothing(f)
-        throw("future error")
+        throw(KeyError(col))
     end
     cast!(af, f, to)
 end
