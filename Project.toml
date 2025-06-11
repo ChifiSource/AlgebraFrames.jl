@@ -2,3 +2,13 @@ name = "AlgebraFrames"
 uuid = "91245b94-7320-4a9d-ac3a-8d3b3e6674af"
 authors = ["emmac <emmacboudreau@gmail.com>"]
 version = "0.1.0"
+
+
+[compat]
+julia = "1.5"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
