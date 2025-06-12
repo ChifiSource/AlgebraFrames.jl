@@ -5,15 +5,156 @@
 - FrameRow (row indexing/filtering)
 ==#
 
+"""
+```julia
+abstract AbstractAlgebraFrame <: AbstractAlgebra
+```
+An `AbstractAlgebraFrame` is *similar* to `AbstractAlgebra`, but carries 
+`names` and `types` alongside its generated values. Most algebraframes act as 
+algebraic types for algebra vectors. All `AlgebraFrames` can be indexed by name or 
+    column and row slices.
+```julia
+# consistencies
+length::Int64
+names::Vector{String}
+T::Vector{Type}
+
+copy(af::AbstractAlgebraFrame)
+generate(af::AbstractAlgebraFrame)
+names(af::AbstractAlgebraFrame)
+size(af::AbstractAlgebraFrame)
+length(af::AbstractAlgebraFrame)
+algebra!(f::Function, af::AbstractAlgebraFrame, ...)
+set_generator!(f::Function, af::AbstractAlgebraFrame, ...)
+eachrow(af::AbstractAlgebraFrame)
+framerows(af::AbstractAlgebraFrame)
+eachcol(af::AbstractAlgebraFrame)
+pairs(af::AbstractAlgebraFrame)
+Dict(af::AbstractAlgebraFrame)
+cast!(f::Function, af::AbstractAlgebraFrame, ...)
+merge!(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame)
+merge(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame)
+join(af::AbstractAlgebraFrame, ...)
+join!(af::AbstractAlgebraFrame, ...)
+drop!(af::AbstractAlgebraFrame, ...)
+deleteat!(af::AbstractAlgebraFrame, ...)
+head(af::AbstractAlgebraFrame, headlength::Int64 = 5)
+```
+- See also: `Frame`, `AlgebraFrame`, `Transform`, `algebra`, `algebra!`, `drop!`, `cast!`
+"""
 abstract type AbstractAlgebraFrame <: AbstractAlgebra end
 
+"""
+```julia
+abstract AbstractTransformation <: Any
+```
+An `AbstractTransformation` is used to represent a transformation taking place 
+across a certain set of columns.
+- See also: `AlgebraFrame`, `Transform`, `algebra!`, `drop!`, `Frame`
+"""
 abstract type AbstractTransformation end
 
+"""
+```julia
+mutable struct Transform <: AbstractTransformation
+```
+- `col`**Vector{Int16}**
+- `f`**Function**
+
+The `Transform` is the standard type of `AbstractTransformation`. `col` stores 
+the columns that are meant to perform the transformation, whereas `f` is the 
+transformation itself; a `Function` that takes a `Frame`. These are held in 
+`AlgebraFrame.transformations` and called whenever the `AlgebraFrame` is generated.
+```julia
+Transform(::Vector{Int64}, ::Function)
+```
+- See also: `AlgebraFrame`, `Frame`, `algebra!`, `set_generator!`
+"""
 mutable struct Transform <: AbstractTransformation
     col::Vector{Int16}
     f::Function
 end
 
+function get_axis(af::Any, col::AbstractString)
+    col = findfirst(val -> val == col, af.names)
+    if isnothing(col)
+        throw(KeyError(col))
+    end
+    return(col)
+end
+
+get_axis(af::Any, n::Integer) = begin
+    l = length(af.names)
+    if n < 1 || n > l
+        throw(BoundsError(af.names, n))
+    end
+    n
+end
+
+"""
+```julia
+mutable struct AlgebraFrame{T <: Any}
+```
+- `length`**::Int64**
+- `names`**Vector{String}**
+- `T`**::Vector{Type}**
+- `gen`**::Vector{Function}**
+- `transformations`**::Vector{Transform}**
+- `offsets`**::Int64**
+
+The `AlgebraFrame` is an algebraic data-structure that represents the 
+`AlgebraFrames.Frame` type. An `AlgebraFrame` is typically *created* using the 
+`algebra` function and modified using the `algebra!` function. To create an `AlgebraFrame`, 
+    we provide the `length` of our observations alongside pairs of names and types. 
+    This can then be modified inside of a `Function` as a `Frame` using `algebra!`.
+```julia
+af = algebra(25, "col1" => Int64, "col2" => Float64)
+
+algebra!(af) do frame::Frame
+    af["col1"][1] = 5
+end
+# indexing for an af is done column-first
+# the column may be provided by name or axis.
+# note that it will generate the entire column, but only 
+# transform and allocate `1:5`.
+af["col1", 1:5][1:5]
+
+af["col1"]
+
+af[1:2, 1:5]
+```
+```julia
+AlgebraFrame{T}(n::Integer, names::Vector{String}, types::Vector{Type}, 
+    gen::Vector{Function}, transforms::Vector{Transform}, offset::Number)
+AlgebraFrame(n::Int64, pairs::Pair{<:Any, DataType} ...; T::Symbol = :a)
+```
+Like `Algebra`, the `AlgebraFrame` primarily uses `Base` method bindings. Here is an exhaustive list:
+```julia
+copy(af::AlgebraFrame)
+generate(af::AbstractAlgebraFrame)
+names(af::AbstractAlgebraFrame)
+size(af::AbstractAlgebraFrame)
+length(af::AbstractAlgebraFrame)
+eachrow(af::AbstractAlgebraFrame)
+framerows(af::AbstractAlgebraFrame)
+eachcol(af::AbstractAlgebraFrame)
+pairs(af::AbstractAlgebraFrame)
+Dict(af::AbstractAlgebraFrame)
+show(io::IO, algebra::AbstractAlgebraFrame)
+head(af::AbstractAlgebraFrame, headlength::Int64 = 5)
+tail(af::AbstractAlgebraFrame, len::Int64 = 5)
+deleteat!(af::AlgebraFrame, ...)
+drop!(af::AlgebraFrame, ...)
+join!(f::Function, af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names))
+join!(af::AbstractAlgebraFrame, ...)
+join(af::AbstractAlgebraFrame, ...)
+merge(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame)
+merge!(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame)
+cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
+cast!(af::AbstractAlgebraFrame, col::Any, to::Type{<:Any})
+```
+- See also: `Algebra`, `algebra`, `algebra!`, `set_generator!`, `Frame`, `framerows`
+"""
 mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
     length::Int64
     names::Vector{String}
@@ -58,22 +199,22 @@ length(af::AbstractAlgebraFrame) = af.length + af.offsets
 
 algebra(n::Int64, prs::Pair{<:Any, DataType} ...; keys ...) = AlgebraFrame(n, prs ...; keys ...)
 
-algebra!(f::Function, af::AlgebraFrame) = begin
+algebra!(f::Function, af::AbstractAlgebraFrame) = begin
     push!(af.transformations, 
         Transform([e for e in 1:length(af.names)], f))
 end
 
-algebra!(f::Function, af::AlgebraFrame, name::Int64 ...) = begin
+algebra!(f::Function, af::AbstractAlgebraFrame, name::Int64 ...) = begin
     push!(af.transformations, Transform([name ...], f))
 end
 
-algebra!(f::Function, af::AlgebraFrame, names::String ...) = begin
+algebra!(f::Function, af::AbstractAlgebraFrame, names::String ...) = begin
     positions = [findfirst(n -> n == name, af.names) for name in names]
     algebra!(f, af, positions ...)
     nothing
 end
 
-algebra!(f::Function, af::AlgebraFrame, names::UnitRange{Int64}) = begin
+algebra!(f::Function, af::AbstractAlgebraFrame, names::UnitRange{Int64}) = begin
     algebra!(f, af, names ...)
 end
 
@@ -109,15 +250,45 @@ function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} 
     af[colaxis, r]
 end
 
-eachrow(af::AlgebraFrame) = begin
+eachrow(af::AbstractAlgebraFrame) = begin
     eachrow(generate(af))
 end
 
-framerows(af::AlgebraFrame) = begin
+"""
+```julia
+framerows(...) -> ::Vector{FrameRow}
+```
+Creates *frame rows* from an `AlgebraFrame` or a `Frame`. Similar to `eachrow`, except 
+that each row is its own 'miniature frame' instead of coming in the form of a `Vector`.
+```julia
+framerows(af::AbstractAlgebraFrame) -> ::Vector{FrameRow}
+framerows(f::AbstractDataFrame) -> ::Vector{FrameRow}
+```
+```julia
+af = algebra(20, "A" => Int64, "B" => Int64)
+
+set_generator!(af, "A") do e
+    rand(1:50)
+end
+
+rows = framerows(af)
+
+rows[1]["A"] # a random number between 1 and 50
+algebra!(af) do frame
+    # used for `filter!`, for example
+    filter!(row -> row["A"] < 25, frame)
+end
+
+generate(af)
+```
+"""
+function framerows end
+
+framerows(af::AbstractAlgebraFrame) = begin
     framerows(generate(af))
 end
 
-eachcol(af::AlgebraFrame) = begin
+eachcol(af::AbstractAlgebraFrame) = begin
     generate(af).values
 end
 
@@ -137,15 +308,99 @@ function show(io::IO, algebra::AbstractAlgebraFrame)
         "frame $(algebra.length + algebra.offsets) x $(length(algebra.names)) | $colnames")
 end
 
+"""
+```julia
+abstract AbstractFrame
+```
+The `AbstractFrame` is the base `Frame` type, which is indexable by names and ranges 
+just like the `AlgebraFrame`. The biggest deviation from the `AlgebraFrame` is 
+the presence of `AbstractFrame.values`. Crucially, an `AbstractFrame` is structured to hold 
+a single observation or multiple observations, whereas an `AbstractDataFrame` is structured 
+explicitly to hold multiple observations.
+```julia
+# consistencies
+names::Vector{String}
+values::Vector{Any}
+```
+- See also: `algebra`, `AbstractDataFrame`, `Frame`, `AlgebraFrame`, `framerows`, `FrameRow`
+"""
 abstract type AbstractFrame end
 
+"""
+```julia
+abstract AbstractDataFrame <: AbstractFrame
+```
+An `AbstractDataFrame` is an `AbstractFrame` that is designed to hold 
+multiple observations.
+```julia
+# consistencies
+names::Vector{String}
+types::Vector{Type}
+values::Vector{Vector{<:Any}}
+```
+- See also: `AbstractFrame`, `FrameRow`, `framerows`, `AlgebraFrame`, `Algebra`
+"""
+abstract type AbstractDataFrame <: AbstractFrame end
+
+"""
+```julia
+mutable struct FrameRow <: AbstractFrame
+```
+- `names`**Vector{String}**
+- `values`**Vector{Any}**
+
+A `FrameRow` is an individual row of a `Frame`. Like a `Frame`, the `FrameRow` 
+is indexable by name. We can access all frame rows of a given `Frame` or 
+`AlgebraFrame` by using the `framerows` function.
+```julia
+f::Frame = generate(algebra(20, "col" => Int64))
+for row in framerows(f)
+    if row["col"] == 0
+        println("holding default fill value")
+    end
+end
+```
+```julia
+FrameRow(::Vector{String}, ::Vector{Any})
+```
+- See also: `Frame`, `framerows`, `eachcol`, `eachrow`, `loop_rows`, `tail`
+"""
 mutable struct FrameRow <: AbstractFrame
     names::Vector{String}
     values::Vector{Any}
 end
 
-abstract type AbstractDataFrame <: AbstractFrame end
+"""
+```julia
+mutable struct Frame <: AbstractFrame
+```
+- `names`**::Vector{String}**
+- `types`**::Vector{Type}**
+- `values`**::Vector{Vector{<:Any}}**
 
+The `Frame` is the generated equivalent of the `AlgebraFrame`. This structure is 
+indexable by names, integers, and ranges just like the `AlgebraFrame`. We create a 
+`Frame` by calling `generate` on an `AlgebraFrame`. The `Frame` will also be provided to 
+`algebra!` transformation functions as its only argument when adding transformations 
+to an `AlgebraFrame`.
+```julia
+Frame(::Vector{String}, ::Vector{Type}, ::Vector{Vector{<:Any}})
+```
+```julia
+af = algebra(10, "one" => Int64, "two" => String, "three" => Float64)
+
+algebra!(af) do f::Frame
+    f["one", 1] = 5
+end
+
+af["one"]
+
+gen::Frame = generate(af)
+
+filter!(row -> row["one"] != 5, gen)
+```
+- See also: `AbstractDataFrame`, `AbstractFrame`, `AlgebraFrame`, `algebra!`, `framerows`, `head`
+"""
 mutable struct Frame <: AbstractDataFrame
     names::Vector{String}
     types::Vector{Type}
@@ -160,6 +415,21 @@ names(f::AbstractFrame) = f.names
 
 copy(f::Frame) = Frame(f.names, f.types, f.values)
 
+"""
+```julia
+loop_rows(f::Function, af::AbstractDataFrame) -> ::Nothing
+```
+Iteratively loops the `FrameRows` of a given `AbstractDataFrame`, calling `f` on 
+each row as it loops. This is a faster and more efficient way of looping framerows with 
+`framerows`.
+```julia
+f = generate(algebra(20, "A" => String))
+loop_rows(f) do row
+    @info row["A"]
+end
+```
+- See also: `framerows`, `Frame`, `AlgebraFrame`, `algebra`, `generate`
+"""
 function loop_rows(f::Function, af::AbstractDataFrame)
     row = FrameRow(af.names, [])
     n = length(af.names)
@@ -211,9 +481,7 @@ getindex(f::AbstractFrame, name::String, observations::UnitRange{Int64} = 1:leng
 end
 
 getindex(af::AbstractFrame, col::Any, at::Integer) = begin
-    if typeof(col) <: AbstractString
-        col = findfirst(n -> n == col, af.names)
-    end
+    col = get_axis(af, col)
     getindex(af, col, at:at)[at]
 end
 
@@ -252,24 +520,18 @@ function setindex!(f::AbstractFrame, position::Int64, row::FrameRow)
 end
 
 function setindex!(f::AbstractFrame, axis::Any, position::Int64, value::Any)
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     f.values[axis][position] = value
     f::AbstractFrame
 end
 
 function setindex!(f::AbstractDataFrame, to::Any, col::Any, n::Integer)
-    if typeof(col) <: AbstractString
-        col = findfirst(n -> n == col, f.names)
-    end
+    col = get_axis(f, col)
     f.values[col][n] = to
 end
 
 function setindex!(f::AbstractDataFrame, to::AbstractVector, col::Any, n::UnitRange{Int64})
-    if typeof(col) <: AbstractString
-        col = findfirst(n -> n == col, f.names)
-    end
+    col = get_axis(f, col)
     len = length(f.values[col])
     finisher = maximum(n)
     starter = minimum(n)
@@ -292,6 +554,14 @@ function display(io::IO, frame::AbstractDataFrame)
     display(io, MIME"text/html"(), frame)
 end
 
+function display(frame::AbstractDataFrame)
+    println(join((name for name in frame.names), " | "))
+    println(join((name for name in frame.types), " | "))
+    for r in framerows(frame)[1:5]
+        println(join((string(val) for val in r.values), " | "))
+    end
+end
+
 function display(io::IO, mime::MIME{Symbol("text/html")}, frame::AbstractDataFrame)
     display(MIME"text/html"(), html_string(frame))
 end
@@ -304,9 +574,41 @@ function html_string(frame::Frame, headlength::Int64 = 5, start::Integer = 1)
     header * "</table>"
 end
 
+"""
+```julia
+head(args ...) -> ::Nothing
+```
+Displays the `head`, or first `n` values in an `AbstractDataFrame` or `AbstractAlgebraFrame`. 
+The inverse of `tail`.
+```julia
+head(af::AbstractAlgebraFrame, headlength::Int64 = 5)
+head(f::Frame, headlength::Int64 = 5)
+```
+- See also: `tail`, `Frame`, `FrameRow`, `algebra!`, `AlgebraFrames`, `set_generator!`
+"""
+function head end
+
+"""
+```julia
+tail(args ...) -> ::Nothing
+```
+Displays the `tail`, or last `n` values in an `AbstractDataFrame` or `AbstractAlgebraFrame`. 
+The inverse of `head`.
+```julia
+tail(af::AbstractAlgebraFrame, len::Int64 = 5)
+tail(f::Frame, len::Int64 = 5)
+```
+- See also: `head`, `Frame`, `FrameRow`, `algebra!`, `cast!`, `set_generator!`
+"""
+function tail end
+
+head(af::AbstractAlgebraFrame, headlength::Int64 = 5) = head(generate(af), headlength)
+
+tail(af::AbstractAlgebraFrame, len::Int64 = 5) = tail(generate(af), len)
+
 head(f::Frame, headlength::Int64 = 5)  = display("/text/html", html_string(f, headlength))
 
-tail(f::Frame, length::Int64) = display("/text/html", html_string(f, headlength, length(f) - length))
+tail(f::Frame, len::Int64 = 5) = display("/text/html", html_string(f, headlength, length(f) - len))
 
 function deleteat!(af::AlgebraFrame, row_n::Int64)
     del = f -> begin
@@ -326,6 +628,24 @@ function deleteat!(af::AlgebraFrame, row_n::UnitRange{Int64})
 	af::AlgebraFrame
 end
 
+"""
+```julia
+drop!(af::Any, ...) -> ::Any
+```
+Drops a **column** from an `AlgebraFrame` or `Frame` by name or axis. 
+For removing observations, use `deleteat!`
+```julia
+drop!(af::AlgebraFrame, axis::Int64)
+drop!(af::AlgebraFrame, col::String)
+```
+```julia
+drop!(f::AbstractFrame, col::Int64)
+drop!(f::AbstractFrame, col::AbstractString)
+```
+- See also: 
+"""
+function drop! end
+
 function drop!(af::AlgebraFrame, axis::Int64)
     deleteat!(af.names, axis)
     deleteat!(af.T, axis)
@@ -341,10 +661,8 @@ function drop!(af::AlgebraFrame, col::String)
     drop!(af, axis)
 end
 
-join!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, af.names)
-    end
+join!(f::Function, af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
+    axis = get_axis(af, axis)
     if axis < length(af.names)
         af.names = vcat(af.names[1:axis], col[1], af.names[axis + 1:end])
         af.gen = vcat(af.gen[1:axis], f, af.gen[axis + 1:end])
@@ -357,14 +675,12 @@ join!(f::Function, af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = le
     af::AlgebraFrame
 end
 
-join!(af::AlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
+join!(af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
     join!(algebra_initializer(col[2]), af, col, axis = axis)
 end
 
-join!(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, af.names)
-    end
+join!(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame; axis::Any = length(af.names)) = begin
+    axis = get_axis(af, axis)
     if axis < length(af.names)
         af.names = vcat(af.names[1:axis], af2.names, af.names[axis + 1:end])
         af.gen = vcat(af.gen[1:axis], af2.gen, af.gen[axis + 1:end])
@@ -376,10 +692,8 @@ join!(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
     end
 end
 
-join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+join(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame; axis::Any = length(af.names)) = begin
+    axis = get_axis(af, axis)
     if af.length != af2.length
         throw("future error here")
     end
@@ -400,7 +714,7 @@ join(af::AlgebraFrame, af2::AlgebraFrame; axis::Any = length(af.names)) = begin
         af.offsets + af2.offsets)::AlgebraFrame{:a}
 end
 
-merge(af::AlgebraFrame, af2::AlgebraFrame) = begin
+merge(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame) = begin
     cop = copy(af)
     cop.length += af2.length
     cop.offsets += af2.offsets
@@ -408,7 +722,7 @@ merge(af::AlgebraFrame, af2::AlgebraFrame) = begin
     cop
 end
 
-merge!(af::AlgebraFrame, af2::AlgebraFrame) = begin
+merge!(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame) = begin
     af.length = af.length + af2.length
     af.offsets = af.offsets + af2.offsets
     push!(af.transformations, af2.transformations ...)
@@ -416,9 +730,7 @@ end
 
 
 function join!(f::AbstractFrame, colname::AbstractString, T::Type, value::AbstractVector; axis::Any = length(f.names))
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     insert!(f.names, axis - 1, colname)
     insert!(f.types, axis - 1, T)
     insert!(f.values, axis - 1, value)
@@ -427,9 +739,7 @@ end
 
 function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
     n = length(f.names)
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     if axis < n
         f.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
         f.values = vcat(f.values[1:axis], f2.values, f.values[axis + 1:end])
@@ -443,9 +753,7 @@ function join!(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
 end
 
 function join(f::AbstractFrame, f2::AbstractFrame; axis::Any = length(f.names))
-    if typeof(axis) <: AbstractString
-        axis = findfirst(n::String -> n == axis, f.names)
-    end
+    axis = get_axis(f, axis)
     newf = copy(f)
     if axis < n
         newf.names = vcat(f.names[1:axis], f2.names, f.names[axis + 1:end])
@@ -580,11 +888,28 @@ function replace!(a::AbstractArray, rep_value::Any, with::Any)
 end
 
 function replace!(af::AbstractDataFrame, col::Any, value::Any, with::Any)
-    if typeof(col) <: AbstractString
-        col = findfirst(val -> val == col, af.names)
-    end
+    col = get_axis(af, col)
     af.values[col] = replace!(af.values[col], value, with)
 end
+
+"""
+```julia
+cast!(...) -> ::Nothing
+```
+`cast!` is used on an `AbstractDataFrame` or an `AbstractAlgebraFrame` to *cast* columns 
+to new types.
+```julia
+cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
+cast!(af::AbstractAlgebraFrame, col::Any, to::Type{<:Any})
+cast!(f::Function, af::AbstractAlgebraFrame, col::String, to::Type)
+```
+```julia
+cast!(af::AbstractDataFrame, col::Int64, to::Type)
+cast!(af::AbstractDataFrame, col::String, to::Type)
+```
+- See also: `generate`, `deleteat!`, `merge!`, `replace!`, `algebra`, `algebra!`
+"""
+function cast! end
 
 function cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
     af.T[col] = to
@@ -617,15 +942,29 @@ function cast(a::AbstractArray, to::Type{<:AbstractString})
     [to(string(val)) for val in a]
 end
 
+struct CastError
+    col::String
+    from::Type
+    to::Type
+end
+
+showerror(c::CastError) = begin
+    """Failed to cast column $(col) from $from to $to"""
+end
+
 function cast!(af::AbstractDataFrame, col::Int64, to::Type)
+    try
+        af.values[col] = cast(af.values[col], to)
+    catch
+        throw(CastError(af.names[col], af.types[col], to))
+    end
     af.types[col] = to
-    af.values[col] = cast(af.values[col], to)
 end
 
 function cast!(af::AbstractDataFrame, col::String, to::Type)
     f = findfirst(name -> name == col, af.names)
     if isnothing(f)
-        throw("future error")
+        throw(KeyError(col))
     end
     cast!(af, f, to)
 end
