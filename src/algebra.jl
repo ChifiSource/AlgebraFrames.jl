@@ -26,7 +26,6 @@ set_generator!(f::Function, alg::AbstractAlgebra)
 getindex(alg::AbstractAlgebra, dim::Int64)
 getindex(alg::AbstractAlgebra, dim::Int64, dim2::Int64)
 getindex(alg::AbstractAlgebra, row::UnitRange{Int64}, col::UnitRange{Int64} = 1:1)
-vect(alg::AbstractAlgebra)
 eachrow(alg::AbstractAlgebra)
 eachcol(alg::AbstractAlgebra)
 ```
