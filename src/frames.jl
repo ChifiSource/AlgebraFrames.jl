@@ -568,6 +568,9 @@ end
 
 function html_string(frame::Frame, headlength::Int64 = 5, start::Integer = 1)
     header = "<table><tr>" * join("<th>$name</th>" for name in frame.names) * "</tr>"
+    if headlength > length(frame)
+        headlength = length(frame)
+    end
     for row in eachrow(frame)[start:headlength]
         header = header * "<tr>" * join("<td>$val</td>" for val in row) * "</tr>"
     end
