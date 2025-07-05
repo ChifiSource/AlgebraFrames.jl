@@ -130,7 +130,7 @@ AlgebraFrame(n::Int64, pairs::Pair{<:Any, DataType} ...; T::Symbol = :a)
 ```
 Like `Algebra`, the `AlgebraFrame` primarily uses `Base` method bindings. Here is an exhaustive list:
 ```julia
-copy(af::AlgebraFrame)
+copy(af::AbstractAlgebraFrame)
 generate(af::AbstractAlgebraFrame)
 names(af::AbstractAlgebraFrame)
 size(af::AbstractAlgebraFrame)
@@ -143,8 +143,8 @@ Dict(af::AbstractAlgebraFrame)
 show(io::IO, algebra::AbstractAlgebraFrame)
 head(af::AbstractAlgebraFrame, headlength::Int64 = 5)
 tail(af::AbstractAlgebraFrame, len::Int64 = 5)
-deleteat!(af::AlgebraFrame, ...)
-drop!(af::AlgebraFrame, ...)
+deleteat!(af::AbstractAlgebraFrame, ...)
+drop!(af::AbstractAlgebraFrame, ...)
 join!(f::Function, af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names))
 join!(af::AbstractAlgebraFrame, ...)
 join(af::AbstractAlgebraFrame, ...)
@@ -171,11 +171,11 @@ mutable struct AlgebraFrame{T <: Any} <: AbstractAlgebraFrame
         names = [keys(dct) ...]
         types = [values(dct) ...]
         gens = [algebra_initializer(types[e]) for e in 1:length(names)]
-        new{T}(n, names, types, gens, Vector{Transform}(), 0)::AlgebraFrame
+        new{T}(n, names, types, gens, Vector{Transform}(), 0)::AbstractAlgebraFrame
     end
 end
 
-copy(af::AlgebraFrame) = begin
+copy(af::AbstractAlgebraFrame) = begin
     AlgebraFrame{typeof(af).parameters[1]}(af.length, af.names, af.T, af.gen, 
     af.transformations, af.offsets)
 end
@@ -218,11 +218,11 @@ algebra!(f::Function, af::AbstractAlgebraFrame, names::UnitRange{Int64}) = begin
     algebra!(f, af, names ...)
 end
 
-function set_generator!(f::Function, af::AlgebraFrame, col::Integer)
+function set_generator!(f::Function, af::AbstractAlgebraFrame, col::Integer)
     af.gen[col] = f
 end
 
-function set_generator!(f::Function, af::AlgebraFrame, col::String)
+function set_generator!(f::Function, af::AbstractAlgebraFrame, col::AbstractString)
     axis = findfirst(n -> n == col, af.names)
     set_generator!(f, af, axis)
 end
@@ -245,8 +245,11 @@ function getindex(af::AbstractAlgebraFrame, column::Int64, r::UnitRange{Int64} =
     init[r]
 end
 
-function getindex(af::AbstractAlgebraFrame, column::String, r::UnitRange{Int64} = 1:af.length)
+function getindex(af::AbstractAlgebraFrame, column::AbstractString, r::UnitRange{Int64} = 1:af.length)
     colaxis = findfirst(x -> x == column, af.names)
+    if isnothing(colaxis)
+        throw("column $column not found")
+    end
     af[colaxis, r]
 end
 
@@ -466,7 +469,7 @@ getindex(f::AbstractFrame, ind::Integer, ind2::Integer) = begin
     f.values[ind2][ind]
 end
 
-getindex(f::AbstractFrame, ind::Integer, col::String) = begin
+getindex(f::AbstractFrame, ind::Integer, col::AbstractString) = begin
     ind2 = findfirst(n::String -> n == col, f.names)
     f.values[ind2][ind]
 end
@@ -613,22 +616,22 @@ head(f::Frame, headlength::Int64 = 5)  = display("/text/html", html_string(f, he
 
 tail(f::Frame, len::Int64 = 5) = display("/text/html", html_string(f, headlength, length(f) - len))
 
-function deleteat!(af::AlgebraFrame, row_n::Int64)
+function deleteat!(af::AbstractAlgebraFrame, row_n::Int64)
     del = f -> begin
         deleteat!(f, row_n)
     end
 	push!(af.transformations, Transform([e for e in 1:length(af.names)], del))
 	af.offsets -= 1
-	af::AlgebraFrame
+	af::AbstractAlgebraFrame
 end
 
-function deleteat!(af::AlgebraFrame, row_n::UnitRange{Int64})
+function deleteat!(af::AbstractAlgebraFrame, row_n::UnitRange{Int64})
     del = f -> begin
         deleteat!(f, row_n ...)
     end
 	push!(af.transformations, Transform([e for e in 1:length(af.names)], del))
 	af.offsets -= 1
-	af::AlgebraFrame
+	af::AbstractAlgebraFrame
 end
 
 """
@@ -638,8 +641,8 @@ drop!(af::Any, ...) -> ::Any
 Drops a **column** from an `AlgebraFrame` or `Frame` by name or axis. 
 For removing observations, use `deleteat!`
 ```julia
-drop!(af::AlgebraFrame, axis::Int64)
-drop!(af::AlgebraFrame, col::String)
+drop!(af::AbstractAlgebraFrame, axis::Int64)
+drop!(af::AbstractAlgebraFrame, col::AbstractString)
 ```
 ```julia
 drop!(f::AbstractFrame, col::Int64)
@@ -649,14 +652,14 @@ drop!(f::AbstractFrame, col::AbstractString)
 """
 function drop! end
 
-function drop!(af::AlgebraFrame, axis::Int64)
+function drop!(af::AbstractAlgebraFrame, axis::Int64)
     deleteat!(af.names, axis)
     deleteat!(af.T, axis)
     deleteat!(af.gen, axis)
-    af::AlgebraFrame
+    af::AbstractAlgebraFrame
 end
 
-function drop!(af::AlgebraFrame, col::String)
+function drop!(af::AbstractAlgebraFrame, col::AbstractString)
     axis = findfirst(x::String -> x == col, af.names)
     if isnothing(axis)
         throw("")
@@ -675,7 +678,7 @@ join!(f::Function, af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::
         push!(af.gen, f)
         push!(af.T, col[2])
     end
-    af::AlgebraFrame
+    af::AbstractAlgebraFrame
 end
 
 join!(af::AbstractAlgebraFrame, col::Pair{String, DataType}; axis::Any = length(af.names)) = begin
@@ -714,7 +717,7 @@ join(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame; axis::Any = length(af.
         T = vcat(af.T, af2.T)
     end
     AlgebraFrame{:a}(af.length, names, T, gen, vcat(af.transformations, af2.transformations), 
-        af.offsets + af2.offsets)::AlgebraFrame{:a}
+        af.offsets + af2.offsets)::AbstractAlgebraFrame{:a}
 end
 
 merge(af::AbstractAlgebraFrame, af2::AbstractAlgebraFrame) = begin
@@ -904,11 +907,11 @@ to new types.
 ```julia
 cast!(f::Function, af::AbstractAlgebraFrame, col::Int64, to::Type)
 cast!(af::AbstractAlgebraFrame, col::Any, to::Type{<:Any})
-cast!(f::Function, af::AbstractAlgebraFrame, col::String, to::Type)
+cast!(f::Function, af::AbstractAlgebraFrame, col::AbstractString, to::Type)
 ```
 ```julia
 cast!(af::AbstractDataFrame, col::Int64, to::Type)
-cast!(af::AbstractDataFrame, col::String, to::Type)
+cast!(af::AbstractDataFrame, col::AbstractString, to::Type)
 ```
 - See also: `generate`, `deleteat!`, `merge!`, `replace!`, `algebra`, `algebra!`
 """
@@ -921,7 +924,7 @@ end
 
 cast!(af::AbstractAlgebraFrame, col::Any, to::Type{<:Any}) = cast!(algebra_initializer(to), af, col, to)
 
-function cast!(f::Function, af::AbstractAlgebraFrame, col::String, to::Type)
+function cast!(f::Function, af::AbstractAlgebraFrame, col::AbstractString, to::Type)
     found = findfirst(name -> name == col, af.names)
     cast!(f, af, found, to)
 end
@@ -946,7 +949,7 @@ function cast(a::AbstractArray, to::Type{<:AbstractString})
 end
 
 struct CastError
-    col::String
+    col::AbstractString
     from::Type
     to::Type
 end
@@ -964,7 +967,7 @@ function cast!(af::AbstractDataFrame, col::Int64, to::Type)
     af.types[col] = to
 end
 
-function cast!(af::AbstractDataFrame, col::String, to::Type)
+function cast!(af::AbstractDataFrame, col::AbstractString, to::Type)
     f = findfirst(name -> name == col, af.names)
     if isnothing(f)
         throw(KeyError(col))
