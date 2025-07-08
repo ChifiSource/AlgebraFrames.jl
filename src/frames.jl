@@ -208,7 +208,7 @@ algebra!(f::Function, af::AbstractAlgebraFrame, name::Int64 ...) = begin
     push!(af.transformations, Transform([name ...], f))
 end
 
-algebra!(f::Function, af::AbstractAlgebraFrame, names::String ...) = begin
+algebra!(f::Function, af::AbstractAlgebraFrame, names::AbstractString ...) = begin
     positions = [findfirst(n -> n == name, af.names) for name in names]
     algebra!(f, af, positions ...)
     nothing
@@ -470,7 +470,7 @@ getindex(f::AbstractFrame, ind::Integer, ind2::Integer) = begin
 end
 
 getindex(f::AbstractFrame, ind::Integer, col::AbstractString) = begin
-    ind2 = findfirst(n::String -> n == col, f.names)
+    ind2 = findfirst(n::AbstractString -> n == col, f.names)
     f.values[ind2][ind]
 end
 
@@ -478,8 +478,8 @@ getindex(f::AbstractFrame, ind::Integer, observations::UnitRange{Int64} = 1:leng
     f.values[ind][observations]
 end
 
-getindex(f::AbstractFrame, name::String, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
-    axis = findfirst(n::String -> n == name, f.names)
+getindex(f::AbstractFrame, name::AbstractString, observations::UnitRange{Int64} = 1:length(f.values[1])) = begin
+    axis = findfirst(n::AbstractString -> n == name, f.names)
     f.values[axis]
 end
 
@@ -499,7 +499,7 @@ function setindex!(f::AbstractFrame, ind::Integer, value::AbstractVector)
     f::AbstractFrame
 end
 
-function setindex!(f::AbstractFrame, value::AbstractVector, colname::String)
+function setindex!(f::AbstractFrame, value::AbstractVector, colname::AbstractString)
     position = findfirst(x -> x == colname, names)
     if isnothing(position)
         # (adds a new column)
@@ -660,7 +660,7 @@ function drop!(af::AbstractAlgebraFrame, axis::Int64)
 end
 
 function drop!(af::AbstractAlgebraFrame, col::AbstractString)
-    axis = findfirst(x::String -> x == col, af.names)
+    axis = findfirst(x::AbstractString -> x == col, af.names)
     if isnothing(axis)
         throw("")
     end
