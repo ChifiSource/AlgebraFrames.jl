@@ -418,6 +418,20 @@ names(f::AbstractFrame) = f.names
 
 copy(f::Frame) = Frame(f.names, f.types, f.values)
 
+Frame(rows::FrameRow ...) = begin
+    samp = rows[1]
+    types = [typeof(val) for val in samp.values]
+    values = [Vector{T}() for T in types]
+    names = row.names
+    n = length(names)
+    for row in rows
+        for e in 1:n
+            push!(values[e], row.values[e])
+        end
+    end
+    Frame(names, types, values)
+end
+
 """
 ```julia
 loop_rows(f::Function, af::AbstractDataFrame) -> ::Nothing
