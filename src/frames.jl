@@ -75,6 +75,23 @@ mutable struct Transform <: AbstractTransformation
     f::Function
 end
 
+struct AxisError{T <: Any} <: Exception
+    type::String
+    index::T
+    names::String
+end
+
+struct AlgebraError{T <: Any} <: Exception
+    type::String
+    index::T
+    names::String
+end
+
+struct DimensionError{T <: Any} <: Exception
+    dimensions::Tuple{Int64, Int64}
+    index::T
+end
+
 function get_axis(af::Any, col::AbstractString)
     col = findfirst(val -> val == col, af.names)
     if isnothing(col)
