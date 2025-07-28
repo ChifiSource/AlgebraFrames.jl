@@ -93,6 +93,9 @@ struct DimensionError{T <: Any} <: Exception
 end
 
 function get_axis(af::Any, col::AbstractString)
+    if length(af.names) == 0
+        return(1)
+    end
     col = findfirst(val -> val == col, af.names)
     if isnothing(col)
         throw(KeyError(col))
@@ -102,6 +105,9 @@ end
 
 get_axis(af::Any, n::Integer) = begin
     l = length(af.names)
+    if l == 0
+        return(1)
+    end
     if n < 1 || n > l
         throw(BoundsError(af.names, n))
     end
